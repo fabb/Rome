@@ -125,6 +125,8 @@ runUDCCommand command absoluteRomefilePath verbose romeVersion = do
   let mS3BucketName        = S3.BucketName <$> cInfo ^. bucket
 
   mlCacheDir <- liftIO $ traverse absolutizePath $ cInfo ^. localCacheDir
+  mEnginePath <- liftIO $ traverse absolutizePath $ cInfo ^. enginePath
+
 
   case command of
 
@@ -158,6 +160,7 @@ runUDCCommand command absoluteRomefilePath verbose romeVersion = do
             in  runReaderT
                   (uploadArtifacts mS3BucketName
                                    mlCacheDir
+                                   mEnginePath
                                    reverseRepositoryMap
                                    frameworkVersions
                                    platforms
@@ -176,6 +179,7 @@ runUDCCommand command absoluteRomefilePath verbose romeVersion = do
             in  runReaderT
                   (uploadArtifacts mS3BucketName
                                    mlCacheDir
+                                   mEnginePath
                                    reverseRepositoryMap
                                    frameworkVersions
                                    platforms
@@ -444,11 +448,12 @@ downloadArtifacts mS3BucketName mlCacheDir reverseRepositoryMap frameworkVersion
 uploadArtifacts
   :: Maybe S3.BucketName -- ^ Just an S3 Bucket name or Nothing
   -> Maybe FilePath -- ^ Just the path to the local cache or Nothing
+  -> Maybe FilePath -- ^ Just the path to the engine or Nothing
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
   -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` from which to derive Frameworks, dSYMs and .verison files
   -> [TargetPlatform] -- ^ A list of `TargetPlatform` to restrict this operation to.
   -> ReaderT (CachePrefix, SkipLocalCacheFlag, Bool) RomeMonad ()
-uploadArtifacts mS3BucketName mlCacheDir reverseRepositoryMap frameworkVersions platforms
+uploadArtifacts mS3BucketName mlCacheDir mEnginePath reverseRepositoryMap frameworkVersions platforms
   = do
     (cachePrefix, s@(SkipLocalCacheFlag skipLocalCache), verbose) <- ask
     case (mS3BucketName, mlCacheDir) of
