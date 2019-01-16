@@ -46,7 +46,7 @@ jobs:
         - stack $ARGS sdist
         - stack $ARGS install
         - travis_wait 60 bats integration-tests/dynamic-frameworks-ini.bats
-        #- travis_wait 60 bats integration-tests/dynamic-frameworks-yml.bats
+        - travis_wait 60 bats integration-tests/dynamic-frameworks-yml.bats
         - travis_wait 60 bats integration-tests/current-framework-yaml.bats
     - stage: "Build"
       name: "Build Rome & Test Static Frameworks"
