@@ -1,0 +1,747 @@
+{
+    "AFNetworking": {
+        "podbuilder_name": "AFNetworking",
+        "framework_path": "Rome/AFNetworking.framework",
+        "restore_info": {
+            "version": {
+                "repo": "https://github.com/some_username/AFNetworking.git",
+                "hash": "c683ebf"
+            },
+            "specs": [
+                "AFNetworking/NSURLSession",
+                "AFNetworking/Reachability",
+                "AFNetworking/Security",
+                "AFNetworking/Serialization",
+                "AFNetworking/UIKit"
+            ]
+        },
+        "prebuilt_info": {
+            "version": {
+                "repo": "https://github.com/some_username/AFNetworking.git",
+                "hash": "c683ebf"
+            },
+            "specs": [
+                "AFNetworking/UIKit",
+                "AFNetworking/NSURLSession",
+                "AFNetworking/Serialization",
+                "AFNetworking/Security",
+                "AFNetworking/Reachability"
+            ]
+        }
+    },
+    "AGWindowView": {
+        "podbuilder_name": "AGWindowView",
+        "framework_path": "Rome/AGWindowView.framework",
+        "restore_info": {
+            "version": {
+                "repo": "https://github.com/some_username/AGWindowView.git",
+                "hash": "cef7821"
+            },
+            "specs": ["AGWindowView"]
+        },
+        "prebuilt_info": {
+            "version": {
+                "repo": "https://github.com/some_username/AGWindowView.git",
+                "hash": "cef7821"
+            },
+            "specs": ["AGWindowView"]
+        }
+    },
+    "ATInternet-Apple-SDK": {
+        "podbuilder_name": "ATInternet-Apple-SDK",
+        "framework_path": "Rome/Tracker.framework",
+        "restore_info": {
+            "version": {
+                "tag": "2.9.3"
+            },
+            "specs": ["ATInternet-Apple-SDK/Tracker"]
+        },
+        "prebuilt_info": {
+            "swift_version": "swiftlang-1000.11.42",
+            "version": {
+                "tag": "2.9.3"
+            },
+            "specs": ["ATInternet-Apple-SDK/Tracker"]
+        }
+    },
+    "BPForms": {
+        "podbuilder_name": "BPForms",
+        "framework_path": "Rome/BPForms.framework",
+        "restore_info": {
+            "version": {
+                "repo": "https://github.com/some_username/BPForms.git",
+                "hash": "17465e9"
+            },
+            "specs": ["BPForms/Core"]
+        },
+        "prebuilt_info": {
+            "version": {
+                "repo": "https://github.com/some_username/BPForms.git",
+                "hash": "17465e9"
+            },
+            "specs": ["BPForms/Core"]
+        }
+    },
+    "BlocksKit": {
+        "podbuilder_name": "BlocksKit",
+        "framework_path": "Rome/BlocksKit.framework",
+        "restore_info": {
+            "version": {
+                "repo": "https://github.com/some_username/BlocksKit.git",
+                "hash": "1567645deb"
+            },
+            "specs": [
+                "BlocksKit",
+                "BlocksKit/All",
+                "BlocksKit/Core",
+                "BlocksKit/DynamicDelegate",
+                "BlocksKit/MessageUI",
+                "BlocksKit/QuickLook",
+                "BlocksKit/UIKit"
+            ]
+        },
+        "prebuilt_info": {
+            "version": {
+                "repo": "https://github.com/some_username/BlocksKit.git",
+                "hash": "1567645deb"
+            },
+            "specs": [
+                "BlocksKit",
+                "BlocksKit/All",
+                "BlocksKit/Core",
+                "BlocksKit/DynamicDelegate",
+                "BlocksKit/MessageUI",
+                "BlocksKit/QuickLook",
+                "BlocksKit/UIKit"
+            ]
+        }
+    },
+    "Bolts": {
+        "podbuilder_name": "Bolts",
+        "framework_path": "Rome/Bolts.framework",
+        "restore_info": {
+            "version": {
+                "tag": "1.9.0"
+            },
+            "specs": ["Bolts", "Bolts/AppLinks", "Bolts/Tasks"]
+        },
+        "prebuilt_info": {
+            "version": {
+                "tag": "1.9.0"
+            },
+            "specs": ["Bolts", "Bolts/AppLinks", "Bolts/Tasks"]
+        }
+    },
+    "CocoaAsyncSocket": {
+        "podbuilder_name": "CocoaAsyncSocket",
+        "framework_path": "Rome/CocoaAsyncSocket.framework",
+        "restore_info": {
+            "version": {
+                "tag": "7.5.1"
+            },
+            "specs": ["CocoaAsyncSocket", "CocoaAsyncSocket/GCD"]
+        },
+        "prebuilt_info": {
+            "version": {
+                "tag": "7.5.1"
+            },
+            "specs": ["CocoaAsyncSocket", "CocoaAsyncSocket/GCD"]
+        }
+    },
+    "DeepLinkParser": {
+        "podbuilder_name": "DeepLinkParser",
+        "framework_path": "Rome/DeepLinkParser.framework",
+        "restore_info": {
+            "version": {
+                "repo": "ssh://git@bitbucket.some_username.apa.net:7999/mob/deeplinkparser_swift.git",
+                "tag": "1.1.4"
+            },
+            "specs": ["DeepLinkParser"]
+        },
+        "prebuilt_info": {
+            "swift_version": "swiftlang-1000.11.42",
+            "version": {
+                "repo": "ssh://git@bitbucket.some_username.apa.net:7999/mob/deeplinkparser_swift.git",
+                "tag": "1.1.4"
+            },
+            "specs": ["DeepLinkParser"]
+        }
+    },
+    "FBSDKCoreKit": {
+        "podbuilder_name": "FBSDKCoreKit",
+        "framework_path": "Rome/FBSDKCoreKit.framework",
+        "restore_info": {
+            "version": {
+                "tag": "4.35.0"
+            },
+            "specs": ["FBSDKCoreKit"]
+        },
+        "prebuilt_info": {
+            "version": {
+                "tag": "4.35.0"
+            },
+            "specs": ["FBSDKCoreKit"]
+        }
+    },
+    "FBSDKShareKit": {
+        "podbuilder_name": "FBSDKShareKit",
+        "framework_path": "Rome/FBSDKShareKit.framework",
+        "restore_info": {
+            "version": {
+                "tag": "4.35.0"
+            },
+            "specs": ["FBSDKShareKit"]
+        },
+        "prebuilt_info": {
+            "version": {
+                "tag": "4.35.0"
+            },
+            "specs": ["FBSDKShareKit"]
+        }
+    },
+    "FLEX": {
+        "podbuilder_name": "FLEX",
+        "framework_path": "Rome/FLEX.framework",
+        "restore_info": {
+            "version": {
+                "tag": "1.1.1"
+            },
+            "specs": ["FLEX"]
+        },
+        "prebuilt_info": {
+            "version": {
+                "tag": "1.1.1"
+            },
+            "specs": ["FLEX"]
+        }
+    },
+    "HighlanderFoundationKit": {
+        "podbuilder_name": "HighlanderFoundationKit",
+        "framework_path": "Rome/HighlanderFoundationKit.framework",
+        "restore_info": {
+            "version": {
+                "tag": "8.0.2"
+            },
+            "specs": ["HighlanderFoundationKit/Core"]
+        },
+        "prebuilt_info": {
+            "swift_version": "swiftlang-1000.11.42",
+            "version": {
+                "tag": "8.0.2"
+            },
+            "specs": ["HighlanderFoundationKit/Core"]
+        }
+    },
+    "KissXML": {
+        "podbuilder_name": "KissXML",
+        "framework_path": "Rome/KissXML.framework",
+        "restore_info": {
+            "version": {
+                "tag": "5.2.3"
+            },
+            "specs": ["KissXML"]
+        },
+        "prebuilt_info": {
+            "version": {
+                "tag": "5.2.3"
+            },
+            "specs": ["KissXML"]
+        }
+    },
+    "Kiwi": {
+        "podbuilder_name": "Kiwi",
+        "framework_path": "Rome/Kiwi.framework",
+        "restore_info": {
+            "version": {
+                "tag": "3.0.0"
+            },
+            "specs": ["Kiwi"]
+        },
+        "prebuilt_info": {
+            "version": {
+                "tag": "3.0.0"
+            },
+            "specs": ["Kiwi"]
+        }
+    },
+    "Knocker": {
+        "podbuilder_name": "Knocker",
+        "framework_path": "Rome/Knocker.framework",
+        "restore_info": {
+            "version": {
+                "tag": "5.2.0"
+            },
+            "specs": ["Knocker"]
+        },
+        "prebuilt_info": {
+            "swift_version": "swiftlang-1000.11.42",
+            "version": {
+                "tag": "5.2.0"
+            },
+            "specs": ["Knocker"]
+        }
+    },
+    "Mantle": {
+        "podbuilder_name": "Mantle",
+        "framework_path": "Rome/Mantle.framework",
+        "restore_info": {
+            "version": {
+                "tag": "2.1.0"
+            },
+            "specs": ["Mantle", "Mantle/extobjc"]
+        },
+        "prebuilt_info": {
+            "version": {
+                "tag": "2.1.0"
+            },
+            "specs": ["Mantle", "Mantle/extobjc"]
+        }
+    },
+    "Masonry": {
+        "podbuilder_name": "Masonry",
+        "framework_path": "Rome/Masonry.framework",
+        "restore_info": {
+            "version": {
+                "repo": "https://github.com/some_username/Masonry.git",
+                "hash": "02e53e5"
+            },
+            "specs": ["Masonry"]
+        },
+        "prebuilt_info": {
+            "version": {
+                "repo": "https://github.com/some_username/Masonry.git",
+                "hash": "02e53e5"
+            },
+            "specs": ["Masonry"]
+        }
+    },
+    "MessagingUIViews": {
+        "podbuilder_name": "MessagingUIViews",
+        "framework_path": "Rome/MessagingUIViews.framework",
+        "restore_info": {
+            "version": {
+                "tag": "13.14.6"
+            },
+            "specs": ["MessagingUIViews/Core"]
+        },
+        "prebuilt_info": {
+            "swift_version": "swiftlang-1000.11.42",
+            "version": {
+                "tag": "13.14.6"
+            },
+            "specs": ["MessagingUIViews/Core"]
+        }
+    },
+    "Nimble": {
+        "podbuilder_name": "Nimble",
+        "framework_path": "Rome/Nimble.framework",
+        "restore_info": {
+            "version": {
+                "tag": "7.3.0"
+            },
+            "specs": ["Nimble"]
+        },
+        "prebuilt_info": {
+            "swift_version": "swiftlang-1000.11.42",
+            "version": {
+                "tag": "7.3.0"
+            },
+            "specs": ["Nimble"]
+        }
+    },
+    "OptimizelySDKCore": {
+        "podbuilder_name": "OptimizelySDKCore",
+        "framework_path": "Rome/OptimizelySDKCore.framework",
+        "restore_info": {
+            "version": {
+                "tag": "1.5.1"
+            },
+            "specs": ["OptimizelySDKCore"]
+        },
+        "prebuilt_info": {
+            "version": {
+                "tag": "1.5.1"
+            },
+            "specs": ["OptimizelySDKCore"]
+        }
+    },
+    "OptimizelySDKDatafileManager": {
+        "podbuilder_name": "OptimizelySDKDatafileManager",
+        "framework_path": "Rome/OptimizelySDKDatafileManager.framework",
+        "restore_info": {
+            "version": {
+                "tag": "1.5.1"
+            },
+            "specs": ["OptimizelySDKDatafileManager"]
+        },
+        "prebuilt_info": {
+            "version": {
+                "tag": "1.5.1"
+            },
+            "specs": ["OptimizelySDKDatafileManager"]
+        }
+    },
+    "OptimizelySDKEventDispatcher": {
+        "podbuilder_name": "OptimizelySDKEventDispatcher",
+        "framework_path": "Rome/OptimizelySDKEventDispatcher.framework",
+        "restore_info": {
+            "version": {
+                "tag": "1.5.1"
+            },
+            "specs": ["OptimizelySDKEventDispatcher"]
+        },
+        "prebuilt_info": {
+            "version": {
+                "tag": "1.5.1"
+            },
+            "specs": ["OptimizelySDKEventDispatcher"]
+        }
+    },
+    "OptimizelySDKShared": {
+        "podbuilder_name": "OptimizelySDKShared",
+        "framework_path": "Rome/OptimizelySDKShared.framework",
+        "restore_info": {
+            "version": {
+                "tag": "1.5.1"
+            },
+            "specs": ["OptimizelySDKShared"]
+        },
+        "prebuilt_info": {
+            "version": {
+                "tag": "1.5.1"
+            },
+            "specs": ["OptimizelySDKShared"]
+        }
+    },
+    "OptimizelySDKUserProfileService": {
+        "podbuilder_name": "OptimizelySDKUserProfileService",
+        "framework_path": "Rome/OptimizelySDKUserProfileService.framework",
+        "restore_info": {
+            "version": {
+                "tag": "1.5.1"
+            },
+            "specs": ["OptimizelySDKUserProfileService"]
+        },
+        "prebuilt_info": {
+            "version": {
+                "tag": "1.5.1"
+            },
+            "specs": ["OptimizelySDKUserProfileService"]
+        }
+    },
+    "OptimizelySDKiOS": {
+        "podbuilder_name": "OptimizelySDKiOS",
+        "framework_path": "Rome/OptimizelySDKiOS.framework",
+        "restore_info": {
+            "version": {
+                "tag": "1.5.1"
+            },
+            "specs": ["OptimizelySDKiOS"]
+        },
+        "prebuilt_info": {
+            "version": {
+                "tag": "1.5.1"
+            },
+            "specs": ["OptimizelySDKiOS"]
+        }
+    },
+    "PrebidMobile": {
+        "podbuilder_name": "PrebidMobile",
+        "framework_path": "Rome/PrebidMobile.framework",
+        "restore_info": {
+            "version": {
+                "repo": "https://github.com/some_username/prebid-mobile-ios.git",
+                "hash": "5a0c5da31b08cea8191cab528ff568ddf0302096"
+            },
+            "specs": ["PrebidMobile"]
+        },
+        "prebuilt_info": {
+            "version": {
+                "repo": "https://github.com/some_username/prebid-mobile-ios.git",
+                "hash": "5a0c5da31b08cea8191cab528ff568ddf0302096"
+            },
+            "specs": ["PrebidMobile"]
+        }
+    },
+    "QBImagePickerController": {
+        "podbuilder_name": "QBImagePickerController",
+        "framework_path": "Rome/QBImagePickerController.framework",
+        "restore_info": {
+            "version": {
+                "repo": "https://github.com/some_username/QBImagePicker.git",
+                "hash": "9474d6e"
+            },
+            "specs": ["QBImagePickerController"]
+        },
+        "prebuilt_info": {
+            "version": {
+                "repo": "https://github.com/some_username/QBImagePicker.git",
+                "hash": "9474d6e"
+            },
+            "specs": ["QBImagePickerController"]
+        }
+    },
+    "Quick": {
+        "podbuilder_name": "Quick",
+        "framework_path": "Rome/Quick.framework",
+        "restore_info": {
+            "version": {
+                "tag": "1.2.0"
+            },
+            "specs": ["Quick"]
+        },
+        "prebuilt_info": {
+            "swift_version": "swiftlang-1000.11.42",
+            "version": {
+                "tag": "1.2.0"
+            },
+            "specs": ["Quick"]
+        }
+    },
+    "SAMKeychain": {
+        "podbuilder_name": "SAMKeychain",
+        "framework_path": "Rome/SAMKeychain.framework",
+        "restore_info": {
+            "version": {
+                "tag": "1.5.3"
+            },
+            "specs": ["SAMKeychain"]
+        },
+        "prebuilt_info": {
+            "version": {
+                "tag": "1.5.3"
+            },
+            "specs": ["SAMKeychain"]
+        }
+    },
+    "SAMTextView": {
+        "podbuilder_name": "SAMTextView",
+        "framework_path": "Rome/SAMTextView.framework",
+        "restore_info": {
+            "version": {
+                "tag": "0.2.1"
+            },
+            "specs": ["SAMTextView"]
+        },
+        "prebuilt_info": {
+            "version": {
+                "tag": "0.2.1"
+            },
+            "specs": ["SAMTextView"]
+        }
+    },
+    "SKPhotoBrowser": {
+        "podbuilder_name": "SKPhotoBrowser",
+        "framework_path": "Rome/SKPhotoBrowser.framework",
+        "restore_info": {
+            "version": {
+                "repo": "https://github.com/some_username/SKPhotoBrowser.git",
+                "hash": "bf1174e"
+            },
+            "specs": ["SKPhotoBrowser"]
+        },
+        "prebuilt_info": {
+            "swift_version": "swiftlang-1000.11.42",
+            "version": {
+                "repo": "https://github.com/some_username/SKPhotoBrowser.git",
+                "hash": "bf1174e"
+            },
+            "specs": ["SKPhotoBrowser"]
+        }
+    },
+    "SVProgressHUD": {
+        "podbuilder_name": "SVProgressHUD",
+        "framework_path": "Rome/SVProgressHUD.framework",
+        "restore_info": {
+            "version": {
+                "tag": "2.2.5"
+            },
+            "specs": ["SVProgressHUD"]
+        },
+        "prebuilt_info": {
+            "version": {
+                "tag": "2.2.5"
+            },
+            "specs": ["SVProgressHUD"]
+        }
+    },
+    "SVPullToRefresh": {
+        "podbuilder_name": "SVPullToRefresh",
+        "framework_path": "Rome/SVPullToRefresh.framework",
+        "restore_info": {
+            "version": {
+                "repo": "https://github.com/some_username/SVPullToRefresh.git",
+                "hash": "d2294cc"
+            },
+            "specs": ["SVPullToRefresh"]
+        },
+        "prebuilt_info": {
+            "version": {
+                "repo": "https://github.com/some_username/SVPullToRefresh.git",
+                "hash": "d2294cc"
+            },
+            "specs": ["SVPullToRefresh"]
+        }
+    },
+    "SwipeCellKit": {
+        "podbuilder_name": "SwipeCellKit",
+        "framework_path": "Rome/SwipeCellKit.framework",
+        "restore_info": {
+            "version": {
+                "tag": "2.5.0"
+            },
+            "specs": ["SwipeCellKit"]
+        },
+        "prebuilt_info": {
+            "swift_version": "swiftlang-1000.11.42",
+            "version": {
+                "tag": "2.5.0"
+            },
+            "specs": ["SwipeCellKit"]
+        }
+    },
+    "TMReachability": {
+        "podbuilder_name": "TMReachability",
+        "framework_path": "Rome/TMReachability.framework",
+        "restore_info": {
+            "version": {
+                "repo": "https://github.com/some_username/Reachability.git",
+                "hash": "e34782b"
+            },
+            "specs": ["TMReachability"]
+        },
+        "prebuilt_info": {
+            "version": {
+                "repo": "https://github.com/some_username/Reachability.git",
+                "hash": "e34782b"
+            },
+            "specs": ["TMReachability"]
+        }
+    },
+    "TOCropViewController": {
+        "podbuilder_name": "TOCropViewController",
+        "framework_path": "Rome/TOCropViewController.framework",
+        "restore_info": {
+            "version": {
+                "repo": "https://github.com/some_username/TOCropViewController.git",
+                "hash": "82f6696"
+            },
+            "specs": ["TOCropViewController"]
+        },
+        "prebuilt_info": {
+            "version": {
+                "repo": "https://github.com/some_username/TOCropViewController.git",
+                "hash": "82f6696"
+            },
+            "specs": ["TOCropViewController"]
+        }
+    },
+    "TTTAttributedLabel": {
+        "podbuilder_name": "TTTAttributedLabel",
+        "framework_path": "Rome/TTTAttributedLabel.framework",
+        "restore_info": {
+            "version": {
+                "repo": "https://github.com/some_username/TTTAttributedLabel.git",
+                "hash": "2650bc9"
+            },
+            "specs": ["TTTAttributedLabel"]
+        },
+        "prebuilt_info": {
+            "version": {
+                "repo": "https://github.com/some_username/TTTAttributedLabel.git",
+                "hash": "2650bc9"
+            },
+            "specs": ["TTTAttributedLabel"]
+        }
+    },
+    "UIWebView-Markdown": {
+        "podbuilder_name": "UIWebView-Markdown",
+        "framework_path": "Rome/UIWebView_Markdown.framework",
+        "restore_info": {
+            "version": {
+                "repo": "https://github.com/some_username/UIWebView-Markdown.git",
+                "tag": "1.0.3"
+            },
+            "specs": ["UIWebView-Markdown"]
+        },
+        "prebuilt_info": {
+            "version": {
+                "repo": "https://github.com/some_username/UIWebView-Markdown.git",
+                "tag": "1.0.3"
+            },
+            "specs": ["UIWebView-Markdown"]
+        }
+    },
+    "XMPPFramework-Schibsted": {
+        "podbuilder_name": "XMPPFramework-Schibsted",
+        "framework_path": "Rome/XMPPFramework.framework",
+        "restore_info": {
+            "version": {
+                "tag": "3.7.7"
+            },
+            "specs": [
+                "XMPPFramework-Schibsted/Core",
+                "XMPPFramework-Schibsted/Reconnect",
+                "XMPPFramework-Schibsted/XEP-0085",
+                "XMPPFramework-Schibsted/XEP-0138",
+                "XMPPFramework-Schibsted/XEP-0184",
+                "XMPPFramework-Schibsted/XEP-0199"
+            ]
+        },
+        "prebuilt_info": {
+            "version": {
+                "tag": "3.7.7"
+            },
+            "specs": [
+                "XMPPFramework-Schibsted/Core",
+                "XMPPFramework-Schibsted/Reconnect",
+                "XMPPFramework-Schibsted/XEP-0085",
+                "XMPPFramework-Schibsted/XEP-0138",
+                "XMPPFramework-Schibsted/XEP-0184",
+                "XMPPFramework-Schibsted/XEP-0199"
+            ]
+        }
+    },
+    "libextobjc": {
+        "podbuilder_name": "libextobjc",
+        "framework_path": "Rome/libextobjc.framework",
+        "restore_info": {
+            "version": {
+                "repo": "https://github.com/jspahrsummers/libextobjc.git",
+                "hash": "a24a09d2df8dc5d533f5d9dfbef7cc78d3503a39"
+            },
+            "specs": [
+                "libextobjc/EXTKeyPathCoding",
+                "libextobjc/RuntimeExtensions"
+            ]
+        },
+        "prebuilt_info": {
+            "version": {
+                "repo": "https://github.com/jspahrsummers/libextobjc.git",
+                "hash": "a24a09d2df8dc5d533f5d9dfbef7cc78d3503a39"
+            },
+            "specs": [
+                "libextobjc/EXTKeyPathCoding",
+                "libextobjc/RuntimeExtensions"
+            ]
+        }
+    },
+    "sundown": {
+        "podbuilder_name": "sundown",
+        "framework_path": "Rome/sundown.framework",
+        "restore_info": {
+            "version": {
+                "repo": "https://github.com/Daij-Djan/sundown.git",
+                "hash": "6bd8a7f50"
+            },
+            "specs": ["sundown"]
+        },
+        "prebuilt_info": {
+            "version": {
+                "repo": "https://github.com/Daij-Djan/sundown.git",
+                "hash": "6bd8a7f50"
+            },
+            "specs": ["sundown"]
+        }
+    }
+}
