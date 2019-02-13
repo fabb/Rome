@@ -25,6 +25,7 @@ library
                        , Data.Carthage.TargetPlatform
                        , Data.Carthage.Common
                        , Data.Carthage.VersionFile
+                       , Data.PodBuilder.PodBuilderInfo
                        , Data.Romefile
                        , Data.S3Config
                        , Text.Parsec.Utils
