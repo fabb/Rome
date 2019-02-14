@@ -10,14 +10,14 @@ module Data.PodBuilder.PodBuilderInfo
 where
 
 import           GHC.Generics
-import           Data.Map
+import qualified Data.Map.Strict               as Map
 import           Data.Aeson
 import qualified Data.ByteString.Lazy          as B
 import           Control.Monad.Trans            ( MonadIO
                                                 , liftIO
                                                 )
 
-type PodBuilderInfo = Map String PodInfo
+type PodBuilderInfo = Map.Map String PodInfo
 
 data PodInfo = PodInfo {
   podbuilder_name :: String,
