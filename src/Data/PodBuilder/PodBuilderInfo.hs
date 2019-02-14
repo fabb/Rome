@@ -13,6 +13,9 @@ import           GHC.Generics
 import           Data.Map
 import           Data.Aeson
 import qualified Data.ByteString.Lazy          as B
+import           Control.Monad.Trans            ( MonadIO
+                                                , liftIO
+                                                )
 
 type PodBuilderInfo = Map String PodInfo
 
@@ -58,7 +61,7 @@ podBuilderInfoFileName = "PodBuilderInfo.json"
 parsePodBuilderInfoByteString :: B.ByteString -> Maybe PodBuilderInfo
 parsePodBuilderInfoByteString = decode
 
-parsePodBuilderInfo :: IO (Maybe PodBuilderInfo)
+parsePodBuilderInfo :: MonadIO m => m (Maybe PodBuilderInfo)
 parsePodBuilderInfo =
-  parsePodBuilderInfoByteString <$> B.readFile podBuilderInfoFileName
+  liftIO $ parsePodBuilderInfoByteString <$> B.readFile podBuilderInfoFileName
 
