@@ -57,7 +57,7 @@ instance Read BuildType where
     case map toLower s of
         "carthage"   -> return Carthage
         "podbuilder" -> return PodBuilder
-        a            -> error $ "Unrecognized BuildType '" ++ a ++ "'"
+        _ -> pfail
 
 data RomeListPayload = RomeListPayload { _listMode              :: ListMode
                                        , _listPlatforms         :: [TargetPlatform]
