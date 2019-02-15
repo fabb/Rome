@@ -86,6 +86,22 @@ platformsParser
     filter (not . null) $ filter isLetter <$> wordsBy (not . isLetter) s
   platformListOrError s = mapM platformOrError $ splitPlatforms s
 
+buildTypeParser :: Opts.Parser BuildType
+buildTypeParser = Opts.option
+  (eitherReader buildTypeOrError)
+  (  Opts.value Carthage
+  <> Opts.metavar "TYPE"
+  <> Opts.long "build-type"
+  <> Opts.help "Build type of the project. One of Carthage or PodBuilder."
+  )
+ where
+  buildTypeOrError s = maybeToEither
+    (  "Unrecognized build-type '"
+    ++ s
+    ++ "', expected 'Carthage' or 'PodBuilder'"
+    )
+    (readMaybe s)
+
 udcPayloadParser :: Opts.Parser RomeUDCPayload
 udcPayloadParser =
   RomeUDCPayload
@@ -96,6 +112,7 @@ udcPayloadParser =
     <*> noIgnoreParser
     <*> noSkipCurrentParser
     <*> concurrentlyParser
+    <*> buildTypeParser
 
 uploadParser :: Opts.Parser RomeCommand
 uploadParser = pure Upload <*> udcPayloadParser
@@ -141,6 +158,7 @@ listPayloadParser =
     <*> printFormatParser
     <*> noIgnoreParser
     <*> noSkipCurrentParser
+    <*> buildTypeParser
 
 listParser :: Opts.Parser RomeCommand
 listParser = List <$> listPayloadParser

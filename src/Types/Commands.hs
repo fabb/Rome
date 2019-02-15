@@ -2,6 +2,9 @@ module Types.Commands where
 
 import           Data.Romefile
 import           Data.Carthage.TargetPlatform
+import           Text.Read
+import qualified Text.Read.Lex                 as L
+import           Data.Char                      ( toLower )
 
 data RomeCommand = Upload RomeUDCPayload
                   | Download RomeUDCPayload
@@ -19,6 +22,7 @@ data RomeUDCPayload = RomeUDCPayload { _payload            :: [ProjectName]
                                      , _noIgnoreFlag       :: NoIgnoreFlag
                                      , _noSkipCurrentFlag  :: NoSkipCurrentFlag
                                      , _concurrentlyFlag   :: ConcurrentlyFlag
+                                     , _buildType          :: BuildType
                                      }
                                      deriving (Show, Eq)
 
@@ -43,12 +47,25 @@ newtype NoSkipCurrentFlag = NoSkipCurrentFlag { _noSkipCurrent :: Bool }
 newtype ConcurrentlyFlag = ConcurrentlyFlag { _concurrently :: Bool }
                                               deriving (Show, Eq)
 
+data BuildType = Carthage
+               | PodBuilder
+               deriving (Show, Eq)
+
+instance Read BuildType where
+  readPrec = parens $ do
+    L.Ident s <- lexP
+    case map toLower s of
+        "carthage"   -> return Carthage
+        "podbuilder" -> return PodBuilder
+        a            -> error $ "Unrecognized BuildType '" ++ a ++ "'"
+
 data RomeListPayload = RomeListPayload { _listMode              :: ListMode
                                        , _listPlatforms         :: [TargetPlatform]
                                        , _listCachePrefix       :: String
                                        , _listFormat            :: PrintFormat
                                        , _listNoIgnoreFlag      :: NoIgnoreFlag
                                        , _listNoSkipCurrentFlag :: NoSkipCurrentFlag
+                                       , _listBuildType         :: BuildType
                                        }
                                        deriving (Show, Eq)
 
