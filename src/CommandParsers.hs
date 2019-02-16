@@ -189,17 +189,17 @@ parseRomeCommand =
     $  Opts.command
          "upload"
          (uploadParser
-         `withInfo` "Uploads frameworks and dSYMs contained in the local Carthage/Build/<platform> to S3, according to the local Cartfile.resolved"
+         `withInfo` "Uploads frameworks and dSYMs contained in the local Carthage/Build/<platform> (Carthage) or Frameworks/Rome (PodBuilder) to S3, according to the local Cartfile.resolved or `pod_builder info`"
          )
     <> Opts.command
          "download"
          (downloadParser
-         `withInfo` "Downloads and unpacks in Carthage/Build/<platform> frameworks and dSYMs found in S3, according to the local Cartfile.resolved"
+         `withInfo` "Downloads and unpacks in Carthage/Build/<platform> (Carthage) or Frameworks/Rome and Frameworks/dSYM (PodBuilder) frameworks and dSYMs found in S3, according to the local Cartfile.resolved or `pod_builder info`"
          )
     <> Opts.command
          "list"
          (listParser
-         `withInfo` "Lists frameworks in the cache and reports cache misses/hits, according to the local Cartfile.resolved. Ignores dSYMs."
+         `withInfo` "Lists frameworks in the cache and reports cache misses/hits, according to the local Cartfile.resolved  or `pod_builder info`. Ignores dSYMs."
          )
     <> Opts.command
          "utils"
