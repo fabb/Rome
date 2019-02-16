@@ -23,6 +23,7 @@ data RomeUDCPayload = RomeUDCPayload { _payload            :: [ProjectName]
                                      , _noSkipCurrentFlag  :: NoSkipCurrentFlag
                                      , _concurrentlyFlag   :: ConcurrentlyFlag
                                      , _buildType          :: BuildType
+                                     , _compilerVersion    :: String
                                      }
                                      deriving (Show, Eq)
 
@@ -66,6 +67,7 @@ data RomeListPayload = RomeListPayload { _listMode              :: ListMode
                                        , _listNoIgnoreFlag      :: NoIgnoreFlag
                                        , _listNoSkipCurrentFlag :: NoSkipCurrentFlag
                                        , _listBuildType         :: BuildType
+                                       , _listCompilerVersion   :: String
                                        }
                                        deriving (Show, Eq)
 

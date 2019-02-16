@@ -102,6 +102,15 @@ buildTypeParser = Opts.option
     )
     (readMaybe s)
 
+compilerVersionParser :: Opts.Parser String
+compilerVersionParser = Opts.strOption
+  (  Opts.value ""
+  <> Opts.metavar "VERSION"
+  <> Opts.long "compiler-version"
+  <> Opts.help
+       "Expected compiler version if relevant to the build output. Currently only used for Swift frameworks in PodBuilder projects, since Swift frameworks are not yet Module Stable and therefore can only be used in projects using the same compiler version. The compiler-version will be compared to the `swift_version` provided by `pod_builder info` and is used as part of the cache key. Provide it like this: `swift --version | head -1 | egrep -o 'swiftlang\\S+'`."
+  )
+
 udcPayloadParser :: Opts.Parser RomeUDCPayload
 udcPayloadParser =
   RomeUDCPayload
@@ -113,6 +122,7 @@ udcPayloadParser =
     <*> noSkipCurrentParser
     <*> concurrentlyParser
     <*> buildTypeParser
+    <*> compilerVersionParser
 
 uploadParser :: Opts.Parser RomeCommand
 uploadParser = pure Upload <*> udcPayloadParser
@@ -159,6 +169,7 @@ listPayloadParser =
     <*> noIgnoreParser
     <*> noSkipCurrentParser
     <*> buildTypeParser
+    <*> compilerVersionParser
 
 listParser :: Opts.Parser RomeCommand
 listParser = List <$> listPayloadParser
