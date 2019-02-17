@@ -110,30 +110,9 @@ runUtilsCommand command absoluteRomefilePath verbose romeVersion =
 
 -- | Runs a command containing a `UDCPayload`   
 runUDCCommand :: RomeCommand -> FilePath -> Bool -> RomeVersion -> RomeMonad ()
-runUDCCommand command = do
-  case command of
-    Upload (RomeUDCPayload {_buildType=Carthage})
-      -> runUDCCommandCarthage command
-    Download (RomeUDCPayload {_buildType=Carthage})
-      -> runUDCCommandCarthage command
-    List (RomeListPayload {_listBuildType=Carthage})
-      -> runUDCCommandCarthage command
+runUDCCommand command absoluteRomefilePath verbose romeVersion = do
+  buildTypeConfig <- buildTypeSpecificConfiguration command
 
-    Upload (RomeUDCPayload {_buildType=PodBuilder})
-      -> runUDCCommandPodBuilder command
-    Download (RomeUDCPayload {_buildType=PodBuilder})
-      -> runUDCCommandPodBuilder command
-    List (RomeListPayload {_listBuildType=PodBuilder})
-      -> runUDCCommandPodBuilder command
-
-    _
-      -- default to carthage
-      -> runUDCCommandCarthage command
-
-runUDCCommandCarthage :: RomeCommand -> FilePath -> Bool -> RomeVersion -> RomeMonad ()
-runUDCCommandCarthage command absoluteRomefilePath verbose romeVersion = do
-  cartfileEntries <- getCartfileEntries
-    `catch` \(e :: IOError) -> ExceptT . return $ Right []
   romeFile <- getRomefileEntries absoluteRomefilePath
 
   let ignoreMapEntries     = _ignoreMapEntries romeFile
@@ -147,7 +126,7 @@ runUDCCommandCarthage command absoluteRomefilePath verbose romeVersion = do
 
   case command of
 
-    Upload (RomeUDCPayload gitRepoNames platforms cachePrefixString skipLocalCache noIgnoreFlag noSkipCurrentFlag concurrentlyFalg buildType compilerVersion)
+    Upload (RomeUDCPayload gitRepoNames platforms cachePrefixString skipLocalCache noIgnoreFlag noSkipCurrentFlag concurrentlyFalg _ compilerVersion)
       -> sayVersionWarning romeVersion verbose
         *> performWithDefaultFlow
              uploadArtifacts
@@ -159,13 +138,13 @@ runUDCCommandCarthage command absoluteRomefilePath verbose romeVersion = do
              )
              (repositoryMapEntries, ignoreMapEntries, currentMapEntries)
              gitRepoNames
-             cartfileEntries
+             buildTypeConfig
              cachePrefixString
              mS3BucketName
              mlCacheDir
              platforms
 
-    Download (RomeUDCPayload gitRepoNames platforms cachePrefixString skipLocalCache noIgnoreFlag noSkipCurrentFlag concurrentlyFalg buildType compilerVersion)
+    Download (RomeUDCPayload gitRepoNames platforms cachePrefixString skipLocalCache noIgnoreFlag noSkipCurrentFlag concurrentlyFalg _ compilerVersion)
       -> sayVersionWarning romeVersion verbose
         *> performWithDefaultFlow
              downloadArtifacts
@@ -177,13 +156,13 @@ runUDCCommandCarthage command absoluteRomefilePath verbose romeVersion = do
              )
              (repositoryMapEntries, ignoreMapEntries, currentMapEntries)
              gitRepoNames
-             cartfileEntries
+             buildTypeConfig
              cachePrefixString
              mS3BucketName
              mlCacheDir
              platforms
 
-    List (RomeListPayload listMode platforms cachePrefixString printFormat noIgnoreFlag noSkipCurrentFlag buildType compilerVersion)
+    List (RomeListPayload listMode platforms cachePrefixString printFormat noIgnoreFlag noSkipCurrentFlag _ compilerVersion)
       -> do
 
         currentVersion <- deriveCurrentVersion
@@ -202,7 +181,7 @@ runUDCCommandCarthage command absoluteRomefilePath verbose romeVersion = do
         let finalIgnoreNames =
               if _noIgnore noIgnoreFlag then [] else ignoreFrameworks
         let derivedFrameworkVersions =
-              deriveFrameworkNamesAndVersion repositoryMap cartfileEntries
+              deriveFrameworkNamesAndVersion repositoryMap buildTypeConfig
         let frameworkVersions =
               derivedFrameworkVersions
                 `filterOutFrameworksAndVersionsIfNotIn` finalIgnoreNames
@@ -255,18 +234,6 @@ runUDCCommandCarthage command absoluteRomefilePath verbose romeVersion = do
       <> romeVersionToString vers
       <> noColorControlSequence
 
-runUDCCommandPodBuilder :: RomeCommand -> FilePath -> Bool -> RomeVersion -> RomeMonad ()
-runUDCCommandPodBuilder command absoluteRomefilePath verbose romeVersion = do
-  -- we don't need the repositoryMap, since PodBuilderInfo already contains that information
-  -- let repositoryMapEntries = _repositoryMapEntries romeFile
-  -- currentMap is not implemented for now
-  -- let currentMapEntries    = _currentMapEntries romeFile
-  -- TODO ignoreMap could be necessary in some corner cases
-  -- let ignoreMapEntries     = _ignoreMapEntries romeFile
-
-  throwError
-    "TODO implement"
-
 type FlowFunction  = Maybe S3.BucketName -- ^ Just an S3 Bucket name or Nothing
   -> Maybe FilePath -- ^ Just the path to the local cache or Nothing
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
@@ -289,13 +256,13 @@ performWithDefaultFlow
                      , [RomefileEntry] {- ignoreMapEntries -}
                                       , [RomefileEntry]) {- currentMapEntries -}
   -> [ProjectName] -- gitRepoNames
-  -> [CartfileEntry] -- cartfileEntries
+  -> BuildTypeSpecificConfiguration
   -> String -- cachePrefixString
   -> Maybe S3.BucketName -- mS3BucketName
   -> Maybe String -- mlCacheDir
   -> [TargetPlatform] -- platforms
   -> RomeMonad ()
-performWithDefaultFlow flowFunc (verbose, noIgnoreFlag, skipLocalCache, noSkipCurrentFlag, concurrentlyFlag) (repositoryMapEntries, ignoreMapEntries, currentMapEntries) gitRepoNames cartfileEntries cachePrefixString mS3BucketName mlCacheDir platforms
+performWithDefaultFlow flowFunc (verbose, noIgnoreFlag, skipLocalCache, noSkipCurrentFlag, concurrentlyFlag) (repositoryMapEntries, ignoreMapEntries, currentMapEntries) gitRepoNames buildTypeConfig cachePrefixString mS3BucketName mlCacheDir platforms
   = do
 
     let ignoreFrameworks = concatMap _frameworks ignoreMapEntries
@@ -318,7 +285,7 @@ performWithDefaultFlow flowFunc (verbose, noIgnoreFlag, skipLocalCache, noSkipCu
       then
         let
           derivedFrameworkVersions =
-            deriveFrameworkNamesAndVersion repositoryMap cartfileEntries
+            deriveFrameworkNamesAndVersion repositoryMap buildTypeConfig
           cachePrefix = CachePrefix cachePrefixString
         in
           do
@@ -370,7 +337,7 @@ performWithDefaultFlow flowFunc (verbose, noIgnoreFlag, skipLocalCache, noSkipCu
         let
           derivedFrameworkVersions = deriveFrameworkNamesAndVersion
             repositoryMap
-            (filterCartfileEntriesByGitRepoNames gitRepoNames cartfileEntries)
+            (filterEntriesByGitRepoNames gitRepoNames buildTypeConfig)
           frameworkVersions =
             (derivedFrameworkVersions <> currentFrameworkVersions)
               `filterOutFrameworksAndVersionsIfNotIn` finalIgnoreNames

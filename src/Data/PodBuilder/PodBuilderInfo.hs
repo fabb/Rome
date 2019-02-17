@@ -1,11 +1,17 @@
 {-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DuplicateRecordFields #-}
 
 module Data.PodBuilder.PodBuilderInfo
   ( parsePodBuilderInfo
   , podBuilderInfoFileName
   , PodBuilderInfo
   , PodInfo
+  , framework_path
+  , restore_info
+  , restore_version
+  , restore_specs
+  , repo
+  , hash
+  , tag
   )
 where
 
@@ -27,15 +33,15 @@ data PodInfo = PodInfo {
   deriving (Generic, Show)
 
 data PodRestoreInfo = PodRestoreInfo {
-  version :: PodVersion,
-  specs :: PodSpecs
+  restore_version :: PodVersion,
+  restore_specs :: PodSpecs
 }
   deriving (Generic, Show)
 
 data PodPrebuiltInfo = PodPrebuiltInfo {
   swift_version :: Maybe String,
-  version :: PodVersion,
-  specs :: PodSpecs
+  prebuilt_version :: PodVersion,
+  prebuilt_specs :: PodSpecs
 }
   deriving (Generic, Show)
 
@@ -49,19 +55,30 @@ data PodVersion = PodVersion {
 type PodSpecs = [String]
 
 instance FromJSON PodInfo
-instance FromJSON PodRestoreInfo
-instance FromJSON PodPrebuiltInfo
+instance FromJSON PodRestoreInfo where
+  parseJSON = genericParseJSON $ defaultOptions { fieldLabelModifier = podRestoreInfoPrefixing }
+instance FromJSON PodPrebuiltInfo where
+  parseJSON = genericParseJSON $ defaultOptions { fieldLabelModifier = podPrebuiltInfoPrefixing }
 instance FromJSON PodVersion
+
+podRestoreInfoPrefixing :: String -> String
+podRestoreInfoPrefixing "restore_version" = "version"
+podRestoreInfoPrefixing "restore_specs"   = "specs"
+podRestoreInfoPrefixing a                 = a
+
+podPrebuiltInfoPrefixing :: String -> String
+podPrebuiltInfoPrefixing "prebuilt_version" = "version"
+podPrebuiltInfoPrefixing "prebuilt_specs"   = "specs"
+podPrebuiltInfoPrefixing a                  = a
 
 podBuilderInfoFileName :: String
 podBuilderInfoFileName = "PodBuilderInfo.json"
 
 -- `pod_builder info` output parsing
 
-parsePodBuilderInfoByteString :: B.ByteString -> Maybe PodBuilderInfo
-parsePodBuilderInfoByteString = decode
+parsePodBuilderInfoByteString :: B.ByteString -> Either String PodBuilderInfo
+parsePodBuilderInfoByteString = eitherDecode
 
-parsePodBuilderInfo :: MonadIO m => m (Maybe PodBuilderInfo)
+parsePodBuilderInfo :: MonadIO m => String -> m (Either String PodBuilderInfo)
 parsePodBuilderInfo =
-  liftIO $ parsePodBuilderInfoByteString <$> B.readFile podBuilderInfoFileName
-
+  liftIO . (fmap parsePodBuilderInfoByteString) . B.readFile

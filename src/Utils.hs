@@ -7,6 +7,7 @@ module Utils where
 
 import qualified Codec.Archive.Zip            as Zip
 import           Configuration                (carthageArtifactsBuildDirectoryForPlatform)
+import           Control.Applicative          ( (<|>) )
 import           Control.Arrow                (left)
 import           Control.Exception            as E (try)
 import           Control.Lens                 hiding (List)
@@ -19,6 +20,7 @@ import qualified Data.ByteString.Char8        as BS
 import qualified Data.ByteString.Lazy         as LBS
 import           Data.Carthage.Cartfile
 import           Data.Carthage.TargetPlatform
+import           Data.PodBuilder.PodBuilderInfo
 import           Data.Char                    (isNumber)
 import qualified Data.Conduit                 as C (runConduit, (.|))
 import qualified Data.Conduit.Binary          as C (sinkFile, sourceLbs)
@@ -188,12 +190,32 @@ bcsymbolmapArchiveName d (Version v) =
 
 
 
--- | Given a list of `CartfileEntry`s  and a list of `ProjectName`s
--- | produces a list of `CartfileEntry`s filtered by `ProjectName`s
+-- | Given either a list of `CartfileEntry`s or a `PodBuilderInfo` and a list of `ProjectName`s
+-- | produces a list of `CartfileEntry`s or a `PodBuilderInfo` filtered by `ProjectName`s
+filterEntriesByGitRepoNames
+  :: [ProjectName]
+  -> BuildTypeSpecificConfiguration
+  -> BuildTypeSpecificConfiguration
+filterEntriesByGitRepoNames repoNames buildTypeConfig = case buildTypeConfig of
+  CarthageConfig { _cartfileEntries = cartfileEntries } -> CarthageConfig
+    { _cartfileEntries = filterCartfileEntriesByGitRepoNames repoNames
+                                                             cartfileEntries
+    }
+  PodBuilderConfig { _podBuilderInfo = podBuilderInfo } -> PodBuilderConfig
+    { _podBuilderInfo = filterPodBuilderEntriesByGitRepoNames repoNames
+                                                              podBuilderInfo
+    }
+
 filterCartfileEntriesByGitRepoNames
   :: [ProjectName] -> [CartfileEntry] -> [CartfileEntry]
 filterCartfileEntriesByGitRepoNames repoNames cartfileEntries =
   [ c | c <- cartfileEntries, gitRepoNameFromCartfileEntry c `elem` repoNames ]
+
+filterPodBuilderEntriesByGitRepoNames
+  :: [ProjectName] -> PodBuilderInfo -> PodBuilderInfo
+filterPodBuilderEntriesByGitRepoNames repoNames podBuilderInfo =
+  M.filterWithKey (\k _ -> k `elem` (map unProjectName repoNames))
+                  podBuilderInfo
 
 
 
@@ -436,12 +458,46 @@ formattedPlatformAvailability p = availabilityPrefix p ++ platformName p
 
 
 
--- | Given a `RepositoryMap` and a list of `CartfileEntry` creates a list of
+-- | Given a `RepositoryMap` and either a list of `CartfileEntry` or a `PodBuilderInfo` creates a list of
 -- | `FrameworkVersion`s. See `deriveFrameworkNameAndVersion` for details.
 deriveFrameworkNamesAndVersion
+  :: RepositoryMap -> BuildTypeSpecificConfiguration -> [FrameworkVersion]
+deriveFrameworkNamesAndVersion romeMap buildTypeConfig =
+  case buildTypeConfig of
+    CarthageConfig { _cartfileEntries = cartfileEntries } ->
+      deriveFrameworkNamesAndVersionCarthage romeMap cartfileEntries
+    PodBuilderConfig { _podBuilderInfo = podBuilderInfo } ->
+      deriveFrameworkNamesAndVersionPodBuilder romeMap podBuilderInfo
+
+deriveFrameworkNamesAndVersionCarthage
   :: RepositoryMap -> [CartfileEntry] -> [FrameworkVersion]
-deriveFrameworkNamesAndVersion romeMap =
+deriveFrameworkNamesAndVersionCarthage romeMap =
   concatMap (deriveFrameworkNameAndVersion romeMap)
+
+deriveFrameworkNamesAndVersionPodBuilder
+  :: RepositoryMap -> PodBuilderInfo -> [FrameworkVersion]
+deriveFrameworkNamesAndVersionPodBuilder romeMap =
+  map
+      (\(k, v) -> FrameworkVersion
+        { _framework        = Framework
+          { _frameworkName      = fromMaybe (framework_path v)
+            . stripPrefix "Rome/"
+            $ framework_path v
+          , _frameworkType      = Dynamic
+          , _frameworkPlatforms = [IOS]
+          }
+        , _frameworkVersion = Version
+          $   fromMaybe ""
+          $   (hash (restore_version ((restore_info v))))
+          <|> (tag (restore_version ((restore_info v))))
+        }
+      )
+    . M.toList
+  -- TODO also consider swift_version
+  -- TODO the path starts with `Rome/`, but probably should start with `Frameworks/Rome/`, need to talk to PodBuilder dev
+  -- TODO dynamic/static
+  -- TODO generic target platform
+  -- TODO restore_specs
 
 
 

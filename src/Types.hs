@@ -3,8 +3,11 @@ module Types where
 
 import           Control.Monad.Except         (ExceptT)
 import           Data.Aeson
-import           Data.Carthage.Cartfile       (Version)
+import           Data.Carthage.Cartfile         ( Version
+                                                , CartfileEntry
+                                                )
 import           Data.Carthage.TargetPlatform
+import           Data.PodBuilder.PodBuilderInfo ( PodBuilderInfo )
 import qualified Data.Map.Strict              as M
 import           Data.Romefile                (Framework, ProjectName)
 import           GHC.Generics
@@ -69,3 +72,6 @@ instance ToJSON RepoJSON where
 newtype ReposJSON = ReposJSON [RepoJSON] deriving (Show, Eq, Generic)
 
 instance ToJSON ReposJSON where
+
+data BuildTypeSpecificConfiguration = CarthageConfig { _cartfileEntries :: [CartfileEntry] }
+                                    | PodBuilderConfig { _podBuilderInfo :: PodBuilderInfo }
