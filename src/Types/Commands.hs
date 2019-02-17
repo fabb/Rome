@@ -54,11 +54,11 @@ data BuildType = Carthage
 
 instance Read BuildType where
   readPrec = parens $ do
-    L.Ident s <- lexP
-    case map toLower s of
-        "carthage"   -> return Carthage
-        "podbuilder" -> return PodBuilder
-        _ -> pfail
+        L.Ident s <- lexP
+        case map toLower s of
+            "carthage"   -> return Carthage
+            "podbuilder" -> return PodBuilder
+            _ -> pfail
 
 data RomeListPayload = RomeListPayload { _listMode              :: ListMode
                                        , _listPlatforms         :: [TargetPlatform]
