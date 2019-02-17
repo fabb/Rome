@@ -110,7 +110,28 @@ runUtilsCommand command absoluteRomefilePath verbose romeVersion =
 
 -- | Runs a command containing a `UDCPayload`   
 runUDCCommand :: RomeCommand -> FilePath -> Bool -> RomeVersion -> RomeMonad ()
-runUDCCommand command absoluteRomefilePath verbose romeVersion = do
+runUDCCommand command = do
+  case command of
+    Upload (RomeUDCPayload {_buildType=Carthage})
+      -> runUDCCommandCarthage command
+    Download (RomeUDCPayload {_buildType=Carthage})
+      -> runUDCCommandCarthage command
+    List (RomeListPayload {_listBuildType=Carthage})
+      -> runUDCCommandCarthage command
+
+    Upload (RomeUDCPayload {_buildType=PodBuilder})
+      -> runUDCCommandPodBuilder command
+    Download (RomeUDCPayload {_buildType=PodBuilder})
+      -> runUDCCommandPodBuilder command
+    List (RomeListPayload {_listBuildType=PodBuilder})
+      -> runUDCCommandPodBuilder command
+
+    _
+      -- default to carthage
+      -> runUDCCommandCarthage command
+
+runUDCCommandCarthage :: RomeCommand -> FilePath -> Bool -> RomeVersion -> RomeMonad ()
+runUDCCommandCarthage command absoluteRomefilePath verbose romeVersion = do
   cartfileEntries <- getCartfileEntries
     `catch` \(e :: IOError) -> ExceptT . return $ Right []
   romeFile <- getRomefileEntries absoluteRomefilePath
@@ -233,6 +254,18 @@ runUDCCommand command absoluteRomefilePath verbose romeVersion = do
       <> "You are currently on: "
       <> romeVersionToString vers
       <> noColorControlSequence
+
+runUDCCommandPodBuilder :: RomeCommand -> FilePath -> Bool -> RomeVersion -> RomeMonad ()
+runUDCCommandPodBuilder command absoluteRomefilePath verbose romeVersion = do
+  -- we don't need the repositoryMap, since PodBuilderInfo already contains that information
+  -- let repositoryMapEntries = _repositoryMapEntries romeFile
+  -- currentMap is not implemented for now
+  -- let currentMapEntries    = _currentMapEntries romeFile
+  -- TODO ignoreMap could be necessary in some corner cases
+  -- let ignoreMapEntries     = _ignoreMapEntries romeFile
+
+  throwError
+    "TODO implement"
 
 type FlowFunction  = Maybe S3.BucketName -- ^ Just an S3 Bucket name or Nothing
   -> Maybe FilePath -- ^ Just the path to the local cache or Nothing
