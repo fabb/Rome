@@ -481,9 +481,11 @@ deriveFrameworkNamesAndVersionPodBuilder romeMap =
       (\(k, v) -> FrameworkVersion
         { _framework        = Framework
           { _frameworkName      = fromMaybe (framework_path v)
-            . stripPrefix "Rome/"
+            . stripPrefix "Frameworks/Rome/"
             $ framework_path v
-          , _frameworkType      = Dynamic
+          , _frameworkType      = case PB.is_static (PB.restore_info v) of
+            True  -> Static
+            False -> Dynamic
           , _frameworkPlatforms = [IOS]
           }
         , _frameworkVersion = Version
@@ -494,8 +496,6 @@ deriveFrameworkNamesAndVersionPodBuilder romeMap =
       )
     . M.toList
   -- TODO also consider swift_version
-  -- TODO the path starts with `Rome/`, but probably should start with `Frameworks/Rome/`, need to talk to PodBuilder dev
-  -- TODO dynamic/static
   -- TODO generic target platform
   -- TODO restore_specs
 
