@@ -20,7 +20,7 @@ import qualified Data.ByteString.Char8        as BS
 import qualified Data.ByteString.Lazy         as LBS
 import           Data.Carthage.Cartfile
 import           Data.Carthage.TargetPlatform
-import           Data.PodBuilder.PodBuilderInfo
+import           Data.PodBuilder.PodBuilderInfo as PB
 import           Data.Char                    (isNumber)
 import qualified Data.Conduit                 as C (runConduit, (.|))
 import qualified Data.Conduit.Binary          as C (sinkFile, sourceLbs)
@@ -488,8 +488,8 @@ deriveFrameworkNamesAndVersionPodBuilder romeMap =
           }
         , _frameworkVersion = Version
           $   fromMaybe ""
-          $   (hash (restore_version ((restore_info v))))
-          <|> (tag (restore_version ((restore_info v))))
+          $   (hash (PB.version ((PB.restore_info v))))
+          <|> (tag (PB.version ((PB.restore_info v))))
         }
       )
     . M.toList

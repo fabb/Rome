@@ -7,8 +7,10 @@ module Data.PodBuilder.PodBuilderInfo
   , PodInfo
   , framework_path
   , restore_info
-  , restore_version
-  , restore_specs
+  , version
+  , specs
+  , is_static
+  , swift_version
   , repo
   , hash
   , tag
@@ -26,22 +28,16 @@ import           Control.Monad.Trans            ( MonadIO
 type PodBuilderInfo = Map.Map String PodInfo
 
 data PodInfo = PodInfo {
-  podbuilder_name :: String,
   framework_path  :: String,
-  restore_info :: PodRestoreInfo,
-  prebuilt_info :: Maybe PodPrebuiltInfo }
+  restore_info :: PodFrameworkInfo,
+  prebuilt_info :: Maybe PodFrameworkInfo }
   deriving (Generic, Show)
 
-data PodRestoreInfo = PodRestoreInfo {
-  restore_version :: PodVersion,
-  restore_specs :: PodSpecs
-}
-  deriving (Generic, Show)
-
-data PodPrebuiltInfo = PodPrebuiltInfo {
-  swift_version :: Maybe String,
-  prebuilt_version :: PodVersion,
-  prebuilt_specs :: PodSpecs
+data PodFrameworkInfo = PodFrameworkInfo {
+  version :: PodVersion,
+  specs :: PodSpecs,
+  is_static :: Bool,
+  swift_version :: Maybe String
 }
   deriving (Generic, Show)
 
@@ -55,21 +51,8 @@ data PodVersion = PodVersion {
 type PodSpecs = [String]
 
 instance FromJSON PodInfo
-instance FromJSON PodRestoreInfo where
-  parseJSON = genericParseJSON $ defaultOptions { fieldLabelModifier = podRestoreInfoPrefixing }
-instance FromJSON PodPrebuiltInfo where
-  parseJSON = genericParseJSON $ defaultOptions { fieldLabelModifier = podPrebuiltInfoPrefixing }
+instance FromJSON PodFrameworkInfo
 instance FromJSON PodVersion
-
-podRestoreInfoPrefixing :: String -> String
-podRestoreInfoPrefixing "restore_version" = "version"
-podRestoreInfoPrefixing "restore_specs"   = "specs"
-podRestoreInfoPrefixing a                 = a
-
-podPrebuiltInfoPrefixing :: String -> String
-podPrebuiltInfoPrefixing "prebuilt_version" = "version"
-podPrebuiltInfoPrefixing "prebuilt_specs"   = "specs"
-podPrebuiltInfoPrefixing a                  = a
 
 podBuilderInfoFileName :: String
 podBuilderInfoFileName = "PodBuilderInfo.json"
