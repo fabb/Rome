@@ -126,7 +126,7 @@ runUDCCommand command absoluteRomefilePath verbose romeVersion = do
 
   case command of
 
-    Upload (RomeUDCPayload gitRepoNames platforms cachePrefixString skipLocalCache noIgnoreFlag noSkipCurrentFlag concurrentlyFalg _ compilerVersion)
+    Upload (RomeUDCPayload gitRepoNames platforms cachePrefixString skipLocalCache noIgnoreFlag noSkipCurrentFlag concurrentlyFalg _)
       -> sayVersionWarning romeVersion verbose
         *> performWithDefaultFlow
              uploadArtifacts
@@ -144,7 +144,7 @@ runUDCCommand command absoluteRomefilePath verbose romeVersion = do
              mlCacheDir
              platforms
 
-    Download (RomeUDCPayload gitRepoNames platforms cachePrefixString skipLocalCache noIgnoreFlag noSkipCurrentFlag concurrentlyFalg _ compilerVersion)
+    Download (RomeUDCPayload gitRepoNames platforms cachePrefixString skipLocalCache noIgnoreFlag noSkipCurrentFlag concurrentlyFalg _)
       -> sayVersionWarning romeVersion verbose
         *> performWithDefaultFlow
              downloadArtifacts
@@ -162,7 +162,7 @@ runUDCCommand command absoluteRomefilePath verbose romeVersion = do
              mlCacheDir
              platforms
 
-    List (RomeListPayload listMode platforms cachePrefixString printFormat noIgnoreFlag noSkipCurrentFlag _ compilerVersion)
+    List (RomeListPayload listMode platforms cachePrefixString printFormat noIgnoreFlag noSkipCurrentFlag _)
       -> do
 
         currentVersion <- deriveCurrentVersion
