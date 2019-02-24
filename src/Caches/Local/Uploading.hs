@@ -115,6 +115,7 @@ saveBinaryToLocalCache cachePath binaryZip destinationPath objectName verbose =
 
 
 -- | Saves a list of .version files to a local cache
+-- | Carthage only, not necessary for PodBuilder
 saveVersionFilesToLocalCache
   :: FilePath -- ^ The cache definition.
   -> [ProjectNameAndVersion] -- ^ The information used to derive the name and path for the .version file.
@@ -125,6 +126,7 @@ saveVersionFilesToLocalCache lCacheDir =
 
 
 -- | Saves a .version file to a local Cache
+-- | Carthage only, not necessary for PodBuilder
 saveVersonFileToLocalCache
   :: FilePath -- ^ The cache definition.
   -> ProjectNameAndVersion -- ^ The information used to derive the name and path for the .version file.
@@ -147,6 +149,7 @@ saveVersonFileToLocalCache lCacheDir projectNameAndVersion = do
 
 
 -- | Saves a `LBS.ByteString` representing a .version file to a file.
+-- | Carthage only, not necessary for PodBuilder
 saveVersionFileBinaryToLocalCache
   :: MonadIO m
   => FilePath -- ^ The destinationf file.

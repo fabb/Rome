@@ -1,17 +1,20 @@
 module Caches.S3.Uploading where
 
-import qualified Codec.Archive.Zip            as Zip
-import           Control.Monad                (when)
-import           Control.Monad.Reader         (ReaderT, ask, withReaderT)
-import qualified Data.ByteString.Lazy         as LBS
+import qualified Codec.Archive.Zip             as Zip
+import           Control.Monad                  ( when )
+import           Control.Monad.Reader           ( ReaderT
+                                                , ask
+                                                , withReaderT
+                                                )
+import qualified Data.ByteString.Lazy          as LBS
 import           Data.Carthage.TargetPlatform
-import           Data.Monoid                  ((<>))
-import           Data.Romefile                (Framework (..))
-import qualified Data.Text                    as T
-import qualified Network.AWS                  as AWS
-import qualified Network.AWS.S3               as S3
-import           System.FilePath              ((</>))
-import           Types                        hiding (version)
+import           Data.Monoid                    ( (<>) )
+import           Data.Romefile                  ( Framework(..) )
+import qualified Data.Text                     as T
+import qualified Network.AWS                   as AWS
+import qualified Network.AWS.S3                as S3
+import           System.FilePath                ( (</>) )
+import           Types                   hiding ( version )
 import           Utils
 import           Xcode.DWARF
 
@@ -83,6 +86,7 @@ uploadBcsymbolmapToS3 dwarfUUID dwarfArchive s3BucketName reverseRomeMap (Framew
 
 
 -- | Uploads a .version file to an S3 Bucket
+-- | Carthage only, not necessary for PodBuilder
 uploadVersionFileToS3
   :: S3.BucketName -- ^ The cache definition.
   -> LBS.ByteString -- ^ The contents of the .version file.

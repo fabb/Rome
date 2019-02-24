@@ -1,29 +1,38 @@
 module Caches.S3.Downloading where
 
 import           Caches.Common
-import           Configuration                (carthageArtifactsBuildDirectoryForPlatform)
-import           Control.Exception            (try)
-import           Control.Lens                 (view)
+import           Configuration                  ( carthageArtifactsBuildDirectoryForPlatform
+                                                )
+import           Control.Exception              ( try )
+import           Control.Lens                   ( view )
 import           Control.Monad
 import           Control.Monad.Except
-import           Control.Monad.Reader         (ReaderT, ask, runReaderT,
-                                               withReaderT)
-import qualified Data.ByteString              as BS
-import qualified Data.ByteString.Lazy         as LBS
+import           Control.Monad.Reader           ( ReaderT
+                                                , ask
+                                                , runReaderT
+                                                , withReaderT
+                                                )
+import qualified Data.ByteString               as BS
+import qualified Data.ByteString.Lazy          as LBS
 import           Data.Carthage.TargetPlatform
-import qualified Data.Conduit                 as C (ConduitT, await, yield,
-                                                    (.|))
-import qualified Data.Conduit.Binary          as C (sinkLbs)
-import           Data.Either                  (lefts)
-import           Data.Maybe                   (fromMaybe)
-import           Data.Monoid                  ((<>))
-import           Data.Romefile                (Framework (..))
-import qualified Data.Text                    as T
-import qualified Network.AWS                  as AWS
-import qualified Network.AWS.S3               as S3
-import           System.Directory             (doesFileExist)
-import           System.FilePath              ((</>))
-import           Types                        hiding (version)
+import qualified Data.Conduit                  as C
+                                                ( ConduitT
+                                                , await
+                                                , yield
+                                                , (.|)
+                                                )
+import qualified Data.Conduit.Binary           as C
+                                                ( sinkLbs )
+import           Data.Either                    ( lefts )
+import           Data.Maybe                     ( fromMaybe )
+import           Data.Monoid                    ( (<>) )
+import           Data.Romefile                  ( Framework(..) )
+import qualified Data.Text                     as T
+import qualified Network.AWS                   as AWS
+import qualified Network.AWS.S3                as S3
+import           System.Directory               (doesFileExist)
+import           System.FilePath                ( (</>) )
+import           Types                   hiding ( version )
 import           Utils
 import           Xcode.DWARF
 
@@ -75,6 +84,7 @@ getDSYMFromS3 s3BucketName reverseRomeMap (FrameworkVersion f@(Framework fwn fwt
 
 
 -- | Retrieves a .version file from S3
+-- | Carthage only, not necessary for PodBuilder
 getVersionFileFromS3
   :: S3.BucketName
   -> ProjectNameAndVersion

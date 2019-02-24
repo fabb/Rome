@@ -239,6 +239,7 @@ type FlowFunction  = Maybe S3.BucketName -- ^ Just an S3 Bucket name or Nothing
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
   -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` from which to derive Frameworks, dSYMs and .version files
   -> [TargetPlatform] -- ^ A list of `TargetPlatform` to restrict this operation to.
+  -> BuildTypeSpecificConfiguration
   -> ReaderT (CachePrefix, SkipLocalCacheFlag, ConcurrentlyFlag, Bool) RomeMonad ()
 
 
@@ -283,46 +284,46 @@ performWithDefaultFlow flowFunc (verbose, noIgnoreFlag, skipLocalCache, noSkipCu
 
     if null gitRepoNames
       then
-        let
-          derivedFrameworkVersions =
-            deriveFrameworkNamesAndVersion repositoryMap buildTypeConfig
-          cachePrefix = CachePrefix cachePrefixString
-        in
-          do
-            runReaderT
-              (flowFunc
-                mS3BucketName
-                mlCacheDir
-                reverseRepositoryMap
-                (derivedFrameworkVersions
-                `filterOutFrameworksAndVersionsIfNotIn` finalIgnoreNames
-                )
-                platforms
-              )
-              (cachePrefix, skipLocalCache, concurrentlyFlag, verbose)
-            when (_noSkipCurrent noSkipCurrentFlag) $ do
-              currentVersion <- deriveCurrentVersion
-              let filteredCurrentMapEntries =
-                    currentMapEntries
-                      `filterRomeFileEntriesByPlatforms` ignoreMapEntries
-              let currentFrameworks = concatMap (snd . romeFileEntryToTuple)
-                                                filteredCurrentMapEntries
-              let currentFrameworkVersions = map
-                    (flip FrameworkVersion currentVersion)
-                    currentFrameworks
-              let currentInvertedMap =
-                    toInvertedRepositoryMap filteredCurrentMapEntries
+        let derivedFrameworkVersions =
+              deriveFrameworkNamesAndVersion repositoryMap buildTypeConfig
+            cachePrefix = CachePrefix cachePrefixString
+        in  do
               runReaderT
                 (flowFunc
                   mS3BucketName
                   mlCacheDir
-                  currentInvertedMap
-                  (currentFrameworkVersions
+                  reverseRepositoryMap
+                  (derivedFrameworkVersions
                   `filterOutFrameworksAndVersionsIfNotIn` finalIgnoreNames
                   )
                   platforms
+                  buildTypeConfig
                 )
                 (cachePrefix, skipLocalCache, concurrentlyFlag, verbose)
+              when (_noSkipCurrent noSkipCurrentFlag) $ do
+                currentVersion <- deriveCurrentVersion
+                let filteredCurrentMapEntries =
+                      currentMapEntries
+                        `filterRomeFileEntriesByPlatforms` ignoreMapEntries
+                let currentFrameworks =
+                      concatMap (snd . romeFileEntryToTuple) filteredCurrentMapEntries
+                let currentFrameworkVersions = map
+                      (flip FrameworkVersion currentVersion)
+                      currentFrameworks
+                let currentInvertedMap =
+                      toInvertedRepositoryMap filteredCurrentMapEntries
+                runReaderT
+                  (flowFunc
+                    mS3BucketName
+                    mlCacheDir
+                    currentInvertedMap
+                    (currentFrameworkVersions
+                    `filterOutFrameworksAndVersionsIfNotIn` finalIgnoreNames
+                    )
+                    platforms
+                    buildTypeConfig
+                  )
+                  (cachePrefix, skipLocalCache, concurrentlyFlag, verbose)
       else do
         currentVersion <- deriveCurrentVersion
         let filteredCurrentMapEntries =
@@ -350,6 +351,7 @@ performWithDefaultFlow flowFunc (verbose, noIgnoreFlag, skipLocalCache, noSkipCu
                     (reverseRepositoryMap <> currentInvertedMap)
                     frameworkVersions
                     platforms
+                    buildTypeConfig
           )
           (cachePrefix, skipLocalCache, concurrentlyFlag, verbose)
 
@@ -439,11 +441,12 @@ downloadArtifacts
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
   -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` from which to derive Frameworks, dSYMs and .version files
   -> [TargetPlatform] -- ^ A list of `TargetPlatform`s to limit the operation to.
+  -> BuildTypeSpecificConfiguration
   -> ReaderT
-       (CachePrefix, SkipLocalCacheFlag, ConcurrentlyFlag, Bool)
+       (CachePrefix, SkipLocalCacheFlag, ConcurrentlyFlag,Bool)
        RomeMonad
        ()
-downloadArtifacts mS3BucketName mlCacheDir reverseRepositoryMap frameworkVersions platforms
+downloadArtifacts mS3BucketName mlCacheDir reverseRepositoryMap frameworkVersions platforms buildTypeConfig
   = do
     (cachePrefix, skipLocalCacheFlag@(SkipLocalCacheFlag skipLocalCache), conconrrentlyFlag@(ConcurrentlyFlag performConcurrently), verbose) <-
       ask
@@ -465,12 +468,14 @@ downloadArtifacts mS3BucketName mlCacheDir reverseRepositoryMap frameworkVersion
                                                         platforms
               )
               uploadDownloadEnv
-        let action2 = runReaderT
-              (downloadVersionFilesFromCaches s3BucketName
-                                              lCacheDir
-                                              gitRepoNamesAndVersions
-              )
-              uploadDownloadEnv
+        let action2 = case buildTypeConfig of
+                        CarthageConfig{} -> runReaderT
+                                (downloadVersionFilesFromCaches s3BucketName
+                                                                lCacheDir
+                                                                gitRepoNamesAndVersions
+                                )
+                                uploadDownloadEnv
+                        PodBuilderConfig{} -> mempty -- PodBuilder does not have .version files, rather PodBuilder.plist files that are part of the .framework
         if performConcurrently
           then liftIO $ concurrently_ action1 action2
           else liftIO $ action1 >> action2
@@ -493,14 +498,17 @@ downloadArtifacts mS3BucketName mlCacheDir reverseRepositoryMap frameworkVersion
               mapM_ (whenLeft sayFunc) errors
             )
             readerEnv
-          runReaderT
-            (do
-              errors <- mapM runExceptT $ getAndSaveVersionFilesFromLocalCache
-                lCacheDir
-                gitRepoNamesAndVersions
-              mapM_ (whenLeft sayFunc) errors
-            )
-            readerEnv
+          case buildTypeConfig of
+            CarthageConfig{} -> do
+              runReaderT
+                (do
+                  errors <- mapM runExceptT $ getAndSaveVersionFilesFromLocalCache
+                    lCacheDir
+                    gitRepoNamesAndVersions
+                  mapM_ (whenLeft sayFunc) errors
+                )
+                readerEnv
+            PodBuilderConfig{} -> liftIO mempty -- PodBuilder does not have .version files, rather PodBuilder.plist files that are part of the .framework
 
       (Nothing, Nothing) -> throwError bothCacheKeysMissingMessage
  where
@@ -519,11 +527,12 @@ uploadArtifacts
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
   -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` from which to derive Frameworks, dSYMs and .version files
   -> [TargetPlatform] -- ^ A list of `TargetPlatform` to restrict this operation to.
+  -> BuildTypeSpecificConfiguration
   -> ReaderT
-       (CachePrefix, SkipLocalCacheFlag, ConcurrentlyFlag, Bool)
+       (CachePrefix, SkipLocalCacheFlag, ConcurrentlyFlag,Bool)
        RomeMonad
        ()
-uploadArtifacts mS3BucketName mlCacheDir reverseRepositoryMap frameworkVersions platforms
+uploadArtifacts mS3BucketName mlCacheDir reverseRepositoryMap frameworkVersions platforms buildTypeConfig
   = do
     (cachePrefix, skipLocalCacheFlag@(SkipLocalCacheFlag skipLocalCache), concurrentlyFlag@(ConcurrentlyFlag performConcurrently), verbose) <-
       ask
@@ -545,12 +554,14 @@ uploadArtifacts mS3BucketName mlCacheDir reverseRepositoryMap frameworkVersions 
                                                     platforms
               )
               uploadDownloadEnv
-        let action2 = runReaderT
-              (uploadVersionFilesToCaches s3BucketName
-                                          lCacheDir
-                                          gitRepoNamesAndVersions
-              )
-              uploadDownloadEnv
+        let action2 = case buildTypeConfig of
+                        CarthageConfig{} -> runReaderT
+                                (uploadVersionFilesToCaches s3BucketName
+                                                            lCacheDir
+                                                            gitRepoNamesAndVersions
+                                )
+                                uploadDownloadEnv
+                        PodBuilderConfig{} -> mempty -- PodBuilder does not have .version files, rather PodBuilder.plist files that are part of the .framework
         if performConcurrently
           then liftIO $ concurrently_ action1 action2
           else liftIO $ action1 >> action2
@@ -566,10 +577,12 @@ uploadArtifacts mS3BucketName mlCacheDir reverseRepositoryMap frameworkVersions 
                                                        platforms
                )
                readerEnv
-          >> runReaderT
-               (saveVersionFilesToLocalCache lCacheDir gitRepoNamesAndVersions)
-               readerEnv
-
+          >> case buildTypeConfig of
+            CarthageConfig{} -> do
+              runReaderT
+                (saveVersionFilesToLocalCache lCacheDir gitRepoNamesAndVersions)
+                readerEnv
+            PodBuilderConfig{} -> mempty -- PodBuilder does not have .version files, rather PodBuilder.plist files that are part of the .framework
       (Nothing, Nothing) -> throwError bothCacheKeysMissingMessage
  where
   gitRepoNamesAndVersions :: [ProjectNameAndVersion]
@@ -580,6 +593,7 @@ uploadArtifacts mS3BucketName mlCacheDir reverseRepositoryMap frameworkVersions 
 
 
 -- | Uploads a lest of .version files to the caches.
+-- | Carthage only, not necessary for PodBuilder
 uploadVersionFilesToCaches
   :: S3.BucketName -- ^ The cache definition.
   -> Maybe FilePath -- ^ Just the path to the local cache or Nothing.
@@ -591,6 +605,7 @@ uploadVersionFilesToCaches s3Bucket mlCacheDir =
 
 
 -- | Uploads a .version file the caches.
+-- | Carthage only, not necessary for PodBuilder
 uploadVersionFileToCaches
   :: S3.BucketName -- ^ The cache definition.
   -> Maybe FilePath -- ^ Just the path to the local cache or Nothing.
@@ -838,6 +853,7 @@ saveFrameworkAndArtifactsToLocalCache lCacheDir reverseRomeMap fVersion@(Framewo
 
 
 -- | Downloads a list of .version files from an S3 Bucket or a local cache.
+-- | Carthage only, not necessary for PodBuilder
 downloadVersionFilesFromCaches
   :: S3.BucketName -- ^ The cache definition.
   -> Maybe FilePath  -- ^ Just the local cache path or Nothing
@@ -849,6 +865,7 @@ downloadVersionFilesFromCaches s3BucketName lDir =
 
 
 -- | Downloads one .version file from an S3 Bucket or a local cache.
+-- | Carthage only, not necessary for PodBuilder
 -- | If the .version file is not found in the local cache, it is downloaded from S3.
 -- | If SkipLocalCache is specified, the local cache is ignored.
 downloadVersionFileFromCaches

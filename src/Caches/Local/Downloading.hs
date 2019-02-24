@@ -57,6 +57,7 @@ getFrameworkFromLocalCache lCacheDir (CachePrefix prefix) reverseRomeMap (Framew
 
 
 -- | Retrieves a .version file from a local cache
+-- | Carthage only, not necessary for PodBuilder
 getVersionFileFromLocalCache
   :: MonadIO m
   => FilePath -- ^ The cache definition
@@ -366,6 +367,7 @@ getAndUnzipDSYMFromLocalCache lCacheDir reverseRomeMap fVersion@(FrameworkVersio
 
 
 -- | Gets a multiple .version file from a local cache and saves them to the appropriate location.
+-- | Carthage only, not necessary for PodBuilder
 getAndSaveVersionFilesFromLocalCache
   :: MonadIO m
   => FilePath -- ^ The cache definition.
@@ -377,6 +379,7 @@ getAndSaveVersionFilesFromLocalCache lCacheDir =
 
 
 -- | Gets a .version file from a local cache and copies it to the appropriate location.
+-- | Carthage only, not necessary for PodBuilder
 getAndSaveVersionFileFromLocalCache
   :: MonadIO m
   => FilePath -- ^ The cache definition.
