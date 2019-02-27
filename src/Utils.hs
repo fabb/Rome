@@ -6,7 +6,7 @@
 module Utils where
 
 import qualified Codec.Archive.Zip            as Zip
-import           Configuration                (carthageArtifactsBuildDirectoryForPlatform)
+import           Configuration                (artifactsBuildDirectoryForPlatform)
 import           Control.Applicative          ( (<|>) )
 import           Control.Arrow                (left)
 import           Control.Exception            as E (try)
@@ -372,13 +372,13 @@ remoteVersionFilePath (projectName, version) =
 
 
 
--- | Builds a `String` representing the path to the Carthage build directory for
+-- | Builds a `String` representing the path to the Carthage/PodBuilder build directory for
 -- | a combination of `TargetPlatform` and `Framework` representing
 -- | the path to the framework's bundle
-frameworkBuildBundleForPlatform :: TargetPlatform -> Framework -> String
-frameworkBuildBundleForPlatform p f =
-  carthageArtifactsBuildDirectoryForPlatform p f
-    </> appendFrameworkExtensionTo f
+frameworkBuildBundleForPlatform
+  :: BuildTypeSpecificConfiguration -> TargetPlatform -> Framework -> String
+frameworkBuildBundleForPlatform b p f =
+  artifactsBuildDirectoryForPlatform b p f </> appendFrameworkExtensionTo f
 
 
 
@@ -688,16 +688,17 @@ deleteFile path verbose = do
 -- | Deletes a Framework from the Carthage Build folder
 deleteFrameworkDirectory
   :: MonadIO m
-  => FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework to delete
+  => BuildTypeSpecificConfiguration
+  -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework to delete
   -> TargetPlatform -- ^ The `TargetPlatform` to restrict this operation to
   -> Bool -- ^ A flag controlling verbosity
   -> m ()
-deleteFrameworkDirectory (FrameworkVersion f _) platform = deleteDirectory
-  frameworkDirectory
+deleteFrameworkDirectory buildTypeConfig (FrameworkVersion f _) platform =
+  deleteDirectory frameworkDirectory
  where
   frameworkNameWithFrameworkExtension = appendFrameworkExtensionTo f
   platformBuildDirectory =
-    carthageArtifactsBuildDirectoryForPlatform platform f
+    artifactsBuildDirectoryForPlatform buildTypeConfig platform f
   frameworkDirectory =
     platformBuildDirectory </> frameworkNameWithFrameworkExtension
 
@@ -706,16 +707,18 @@ deleteFrameworkDirectory (FrameworkVersion f _) platform = deleteDirectory
 -- | Deletes a dSYM from the Carthage Build folder
 deleteDSYMDirectory
   :: MonadIO m
-  => FrameworkVersion -- ^ The `FrameworkVersion` identifying the dSYM to delete
+  => BuildTypeSpecificConfiguration
+  -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the dSYM to delete
   -> TargetPlatform -- ^ The `TargetPlatform` to restrict this operation to
   -> Bool -- ^ A flag controlling verbosity
   -> m ()
-deleteDSYMDirectory (FrameworkVersion f _) platform = deleteDirectory
-  dSYMDirectory
+deleteDSYMDirectory buildTypeConfig (FrameworkVersion f _) platform  =
+  deleteDirectory dSYMDirectory
  where
   frameworkNameWithFrameworkExtension = appendFrameworkExtensionTo f
   platformBuildDirectory =
-    carthageArtifactsBuildDirectoryForPlatform platform f
+    artifactsBuildDirectoryForPlatform buildTypeConfig platform f
+  -- FIXME for PodBuilder, dSYMs are NOT contained in platformBuildDirectory, but rather a level above
   dSYMDirectory =
     platformBuildDirectory </> frameworkNameWithFrameworkExtension <> ".dSYM"
 

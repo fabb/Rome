@@ -1,7 +1,7 @@
 module Caches.S3.Downloading where
 
 import           Caches.Common
-import           Configuration                  ( carthageArtifactsBuildDirectoryForPlatform
+import           Configuration                  ( artifactsBuildDirectoryForPlatform
                                                 )
 import           Control.Exception              ( try )
 import           Control.Lens                   ( view )
@@ -133,41 +133,43 @@ getBcsymbolmapFromS3 s3BucketName reverseRomeMap (FrameworkVersion f@(Framework 
 
 -- | Retrieves a Framework from an S3 Cache and unzip the contents
 getAndUnzipFrameworkFromS3
-  :: S3.BucketName -- ^ The cache definition
+  :: BuildTypeSpecificConfiguration
+  -> S3.BucketName -- ^ The cache definition
   -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the Framework in the cache
   -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
   -> ExceptT String (ReaderT (AWS.Env, CachePrefix, Bool) IO) ()
-getAndUnzipFrameworkFromS3 s3BucketName reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn fwt fwps) version) platform
+getAndUnzipFrameworkFromS3 buildTypeConfig s3BucketName reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn fwt fwps) version) platform
   = when (platform `elem` fwps) $ do
     (_, _, verbose) <- ask
     frameworkBinary <- getFrameworkFromS3 s3BucketName
                                           reverseRomeMap
                                           fVersion
                                           platform
-    deleteFrameworkDirectory fVersion platform verbose
+    deleteFrameworkDirectory buildTypeConfig fVersion platform verbose
     unzipBinary frameworkBinary fwn frameworkZipName verbose
       <* ifExists
            frameworkExecutablePath
            (makeExecutable frameworkExecutablePath)
  where
   frameworkZipName        = frameworkArchiveName f version
-  frameworkExecutablePath = frameworkBuildBundleForPlatform platform f </> fwn
+  frameworkExecutablePath = frameworkBuildBundleForPlatform buildTypeConfig platform f </> fwn
 
 
 
 -- | Retrieves a dSYM from an S3 Cache and unzip the contents
 getAndUnzipDSYMFromS3
-  :: S3.BucketName -- ^ The cache definition
+  :: BuildTypeSpecificConfiguration
+  -> S3.BucketName -- ^ The cache definition
   -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the dSYM in the cache
   -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the dSYM
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
   -> ExceptT String (ReaderT (AWS.Env, CachePrefix, Bool) IO) ()
-getAndUnzipDSYMFromS3 s3BucketName reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn fwt fwps) version) platform
+getAndUnzipDSYMFromS3 buildTypeConfig s3BucketName reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn fwt fwps) version) platform
   = when (platform `elem` fwps) $ do
     (_, _, verbose) <- ask
     dSYMBinary <- getDSYMFromS3 s3BucketName reverseRomeMap fVersion platform
-    deleteDSYMDirectory fVersion platform verbose
+    deleteDSYMDirectory buildTypeConfig fVersion platform verbose
     unzipBinary dSYMBinary fwn dSYMZipName verbose
   where dSYMZipName = dSYMArchiveName f version
 
@@ -175,13 +177,17 @@ getAndUnzipDSYMFromS3 s3BucketName reverseRomeMap fVersion@(FrameworkVersion f@(
 
 -- | Retrieves a bcsymbolmap from an S3 Cache and unzip the contents
 getAndUnzipBcsymbolmapFromS3
-  :: S3.BucketName -- ^ The cache definition
+  :: BuildTypeSpecificConfiguration
+  -> S3.BucketName -- ^ The cache definition
   -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the dSYM in the cache
   -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the dSYM
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
   -> DwarfUUID -- ^ The UUID of the bcsymbolmap
-  -> ExceptT String (ReaderT (AWS.Env, CachePrefix, Bool) IO) ()
-getAndUnzipBcsymbolmapFromS3 s3BucketName reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn fwt fwps) version) platform dwarfUUID
+  -> ExceptT
+       String
+       (ReaderT (AWS.Env, CachePrefix, Bool) IO)
+       ()
+getAndUnzipBcsymbolmapFromS3 buildTypeConfig s3BucketName reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn fwt fwps) version) platform dwarfUUID
   = when (platform `elem` fwps) $ do
     (_, _, verbose) <- ask
     let symbolmapName = fwn <> "." <> bcsymbolmapNameFrom dwarfUUID
@@ -194,7 +200,7 @@ getAndUnzipBcsymbolmapFromS3 s3BucketName reverseRomeMap fVersion@(FrameworkVers
     unzipBinary binary symbolmapName (bcsymbolmapZipName dwarfUUID) verbose
  where
   platformBuildDirectory =
-    carthageArtifactsBuildDirectoryForPlatform platform f
+    artifactsBuildDirectoryForPlatform buildTypeConfig platform f
   bcsymbolmapZipName d = bcsymbolmapArchiveName d version
   bcsymbolmapPath d = platformBuildDirectory </> bcsymbolmapNameFrom d
 
@@ -202,7 +208,8 @@ getAndUnzipBcsymbolmapFromS3 s3BucketName reverseRomeMap fVersion@(FrameworkVers
 
 -- | Retrieves all the bcsymbolmap files from S3 and unzip the contents
 getAndUnzipBcsymbolmapsFromS3'
-  :: S3.BucketName -- ^ The cache definition
+  :: BuildTypeSpecificConfiguration
+  -> S3.BucketName -- ^ The cache definition
   -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the dSYM in the cache
   -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
@@ -210,7 +217,7 @@ getAndUnzipBcsymbolmapsFromS3'
        DWARFOperationError
        (ReaderT (AWS.Env, CachePrefix, Bool) IO)
        ()
-getAndUnzipBcsymbolmapsFromS3' lCacheDir reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn fwt fwps) _) platform
+getAndUnzipBcsymbolmapsFromS3' buildTypeConfig lCacheDir reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn fwt fwps) _) platform
   = when (platform `elem` fwps) $ do
 
     dwarfUUIDs <- withExceptT (const ErrorGettingDwarfUUIDs)
@@ -219,6 +226,7 @@ getAndUnzipBcsymbolmapsFromS3' lCacheDir reverseRomeMap fVersion@(FrameworkVersi
       dwarfUUIDs
       (\dwarfUUID -> lift $ runExceptT
         (withExceptT (\e -> (dwarfUUID, e)) $ getAndUnzipBcsymbolmapFromS3
+          buildTypeConfig
           lCacheDir
           reverseRomeMap
           fVersion
@@ -233,7 +241,7 @@ getAndUnzipBcsymbolmapsFromS3' lCacheDir reverseRomeMap fVersion@(FrameworkVersi
  where
   frameworkNameWithFrameworkExtension = appendFrameworkExtensionTo f
   platformBuildDirectory =
-    carthageArtifactsBuildDirectoryForPlatform platform f
+    artifactsBuildDirectoryForPlatform buildTypeConfig platform f
   frameworkDirectory =
     platformBuildDirectory </> frameworkNameWithFrameworkExtension
 

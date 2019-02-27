@@ -86,6 +86,14 @@ getS3ConfigFile = (</> awsConfigFilePath) `liftM` liftIO getHomeDirectory
 carthageBuildDirectory :: FilePath
 carthageBuildDirectory = "Carthage" </> "Build"
 
+podBuilderBuildDirectory :: FilePath
+podBuilderBuildDirectory = "Frameworks" </> "Rome"
+
+artifactsBuildDirectoryForPlatform
+  :: BuildTypeSpecificConfiguration -> TargetPlatform -> Framework -> FilePath
+artifactsBuildDirectoryForPlatform buildTypeConfig = case buildTypeConfig of
+  CarthageConfig{}   -> carthageArtifactsBuildDirectoryForPlatform
+  PodBuilderConfig{} -> podBuilderArtifactsBuildDirectoryForPlatform
 
 -- | The Carthage build directory based on the `TargetPlatform` and the `FrameworkType`
 --   from `Framework`. Ignores the `TargetPlatform` list in `Framework`
@@ -95,3 +103,9 @@ carthageArtifactsBuildDirectoryForPlatform platform (Framework n Dynamic _) =
   carthageBuildDirectory </> show platform
 carthageArtifactsBuildDirectoryForPlatform platform (Framework n Static _) =
   carthageBuildDirectory </> show platform </> "Static"
+
+-- | The PodBuilder build directory
+podBuilderArtifactsBuildDirectoryForPlatform
+  :: TargetPlatform -> Framework -> FilePath
+podBuilderArtifactsBuildDirectoryForPlatform platform _ =
+  podBuilderBuildDirectory
