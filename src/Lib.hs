@@ -191,7 +191,7 @@ runUDCCommand command absoluteRomefilePath verbose romeVersion = do
               concatMap (snd . romeFileEntryToTuple) filteredCurrentMapEntries
         let currentFrameworkVersions =
               map (flip FrameworkVersion currentVersion) currentFrameworks
-        let currentFrameworkVectors = createFrameworkVectorsForCurrentFrameworkVersions currentFrameworkVersions
+        let currentFrameworkVectors = createFrameworkVectorsForCurrentFrameworkVersions buildTypeConfig currentFrameworkVersions
         let currentInvertedMap =
               toInvertedRepositoryMap filteredCurrentMapEntries
 
@@ -204,13 +204,13 @@ runUDCCommand command absoluteRomefilePath verbose romeVersion = do
               then currentInvertedMap
               else M.empty
             )
-            (map _vectorFrameworkVersion (frameworkVectors <> if _noSkipCurrent noSkipCurrentFlag
+            (frameworkVectors <> if _noSkipCurrent noSkipCurrentFlag
               then
                 (currentFrameworkVectors
                 `filterOutFrameworksAndVersionsIfNotIn` finalIgnoreNames
                 )
               else []
-            ))
+            )
             platforms
             printFormat
           )
@@ -308,7 +308,7 @@ performWithDefaultFlow flowFunc buildTypeConfig (verbose, noIgnoreFlag, skipLoca
                 let currentFrameworkVersions = map
                       (flip FrameworkVersion currentVersion)
                       currentFrameworks
-                let currentFrameworkVectors = createFrameworkVectorsForCurrentFrameworkVersions currentFrameworkVersions
+                let currentFrameworkVectors = createFrameworkVectorsForCurrentFrameworkVersions buildTypeConfig currentFrameworkVersions
                 let currentInvertedMap =
                       toInvertedRepositoryMap filteredCurrentMapEntries
                 runReaderT
@@ -333,7 +333,7 @@ performWithDefaultFlow flowFunc buildTypeConfig (verbose, noIgnoreFlag, skipLoca
         let currentFrameworkVersions =
               map (flip FrameworkVersion currentVersion) currentFrameworks
         let
-          currentFrameworkVectors = createFrameworkVectorsForCurrentFrameworkVersions currentFrameworkVersions
+          currentFrameworkVectors = createFrameworkVectorsForCurrentFrameworkVersions buildTypeConfig currentFrameworkVersions
         let derivedFrameworkVectors = deriveFrameworkVectors repositoryMap (filterEntriesByGitRepoNames gitRepoNames buildTypeConfig)
             frameworkVectors =
               (derivedFrameworkVectors <> currentFrameworkVectors)
@@ -357,14 +357,14 @@ listArtifacts
   -> Maybe FilePath -- ^ Just the path to the local cache or Nothing
   -> ListMode -- ^ A list mode to execute this operation in.
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
-  -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` from which to derive Frameworks
+  -> [FrameworkVector] -- ^ A list of `FrameworkVector` from which to derive Frameworks
   -> [TargetPlatform] -- ^ A list of `TargetPlatform` to limit the operation to.
   -> PrintFormat -- ^ A format of the string result: text or JSON.
   -> ReaderT
        (CachePrefix, SkipLocalCacheFlag, Bool)
        RomeMonad
        ()
-listArtifacts mS3BucketName mlCacheDir listMode reverseRepositoryMap frameworkVersions platforms format
+listArtifacts mS3BucketName mlCacheDir listMode reverseRepositoryMap frameworkVectors platforms format
   = do
     (_, _, verbose) <- ask
     let sayFunc = if verbose then sayLnWithTime else sayLn
@@ -372,7 +372,7 @@ listArtifacts mS3BucketName mlCacheDir listMode reverseRepositoryMap frameworkVe
       mS3BucketName
       mlCacheDir
       reverseRepositoryMap
-      frameworkVersions
+      frameworkVectors
       platforms
     if format == Text
       then mapM_ sayFunc $ repoLines repoAvailabilities
@@ -389,13 +389,13 @@ getProjectAvailabilityFromCaches
   :: Maybe S3.BucketName -- ^ Just an S3 Bucket name or Nothing
   -> Maybe FilePath -- ^ Just the path to the local cache or Nothing
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
-  -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` from which to derive Frameworks, dSYMs and .version files
+  -> [FrameworkVector] -- ^ A list of `FrameworkVector` from which to derive Frameworks, dSYMs and .version files
   -> [TargetPlatform] -- ^ A list of `TargetPlatform`s to limit the operation to.
   -> ReaderT
        (CachePrefix, SkipLocalCacheFlag, Bool)
        RomeMonad
        [ProjectAvailability]
-getProjectAvailabilityFromCaches (Just s3BucketName) _ reverseRepositoryMap frameworkVersions platforms
+getProjectAvailabilityFromCaches (Just s3BucketName) _ reverseRepositoryMap frameworkVectors platforms
   = do
     env                       <- lift getAWSRegion
     (cachePrefix, _, verbose) <- ask
@@ -403,7 +403,7 @@ getProjectAvailabilityFromCaches (Just s3BucketName) _ reverseRepositoryMap fram
     availabilities <- liftIO $ runReaderT
       (probeS3ForFrameworks s3BucketName
                             reverseRepositoryMap
-                            frameworkVersions
+                            frameworkVectors
                             platforms
       )
       readerEnv
@@ -411,7 +411,7 @@ getProjectAvailabilityFromCaches (Just s3BucketName) _ reverseRepositoryMap fram
       reverseRepositoryMap
       availabilities
 
-getProjectAvailabilityFromCaches Nothing (Just lCacheDir) reverseRepositoryMap frameworkVersions platforms
+getProjectAvailabilityFromCaches Nothing (Just lCacheDir) reverseRepositoryMap frameworkVectors platforms
   = do
     (cachePrefix, SkipLocalCacheFlag skipLocalCache, _) <- ask
     when skipLocalCache $ throwError conflictingSkipLocalCacheOptionMessage
@@ -419,7 +419,7 @@ getProjectAvailabilityFromCaches Nothing (Just lCacheDir) reverseRepositoryMap f
     availabilities <- probeLocalCacheForFrameworks lCacheDir
                                                    cachePrefix
                                                    reverseRepositoryMap
-                                                   frameworkVersions
+                                                   frameworkVectors
                                                    platforms
     return $ getMergedGitRepoAvailabilitiesFromFrameworkAvailabilities
       reverseRepositoryMap

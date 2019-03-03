@@ -263,7 +263,8 @@ filterByFrameworkEqualTo versions f =
 filterOutFrameworksAndVersionsIfNotIn
   :: [FrameworkVector] -> [Framework] -> [FrameworkVector]
 filterOutFrameworksAndVersionsIfNotIn vectors frameworks = do
-  vec@(FrameworkVector ver@(FrameworkVersion f@(Framework n t ps) v)) <- vectors -- For each version
+  vec@(FrameworkVector ver@(FrameworkVersion f@(Framework n t ps) v) rfp) <-
+    vectors -- For each version
   let filtered =
         (\(Framework nF tF psF) -> nF == n && tF == t) `filter` frameworks -- filter the frameworks to exclude based on name and type, not on the platforms
   if null filtered -- If none match
@@ -272,7 +273,7 @@ filterOutFrameworksAndVersionsIfNotIn vectors frameworks = do
       let op =
             f `removePlatformsIn` nub (concatMap _frameworkPlatforms filtered)
       guard (not . null $ _frameworkPlatforms op) -- if the entry completely filters out the FrameworkVector then remove it
-      return $ FrameworkVector $ FrameworkVersion op v -- if it doesn't, then remove from f the platforms that appear in the filter above.
+      return $ FrameworkVector (FrameworkVersion op v) rfp -- if it doesn't, then remove from f the platforms that appear in the filter above.
  where
   removePlatformsIn :: Framework -> [TargetPlatform] -> Framework
   removePlatformsIn (Framework n t ps) rPs =
@@ -458,16 +459,31 @@ formattedPlatformAvailability p = availabilityPrefix p ++ platformName p
 
 -- | Given a list of `FrameworkVersion` creates a list of `FrameworkVector`s
 createFrameworkVectorsForCurrentFrameworkVersions
-  :: [FrameworkVersion] -> [FrameworkVector]
-createFrameworkVectorsForCurrentFrameworkVersions = map FrameworkVector
-  -- TODO extract to method that creates all the other fields necessary for FrameworkVector once they are introduced
+  :: BuildTypeSpecificConfiguration -> [FrameworkVersion] -> [FrameworkVector]
+createFrameworkVectorsForCurrentFrameworkVersions buildTypeConfig =
+  map $ tempWrapFrameworkVersionInFrameworkVector buildTypeConfig
+
+-- TODO this is a temporary method used until everything is migrated to FrameworkVector
+tempWrapFrameworkVersionInFrameworkVector
+  :: BuildTypeSpecificConfiguration -> FrameworkVersion -> FrameworkVector
+tempWrapFrameworkVersionInFrameworkVector buildTypeConfig frameworkVersion =
+  FrameworkVector
+    { _vectorFrameworkVersion = frameworkVersion
+    , _remoteFrameworkPath    = (\p m -> remoteFrameworkPath
+                                  p
+                                  m
+                                  (_framework frameworkVersion)
+                                  (_frameworkVersion frameworkVersion)
+                                )
+    }
 
 -- | Given a `RepositoryMap` and either a list of `CartfileEntry` or a `PodBuilderInfo` creates a list of
 -- | `FrameworkVector`s. See `deriveFrameworkNameAndVersion` for details.
 deriveFrameworkVectors
   :: RepositoryMap -> BuildTypeSpecificConfiguration -> [FrameworkVector]
-deriveFrameworkVectors romeMap =
-  map FrameworkVector . deriveFrameworkNamesAndVersion romeMap
+deriveFrameworkVectors romeMap buildTypeConfig =
+  map (tempWrapFrameworkVersionInFrameworkVector buildTypeConfig)
+    $ deriveFrameworkNamesAndVersion romeMap buildTypeConfig
   -- TODO add fields for paths to FrameworkVector and create them here
 
 -- | Given a `RepositoryMap` and either a list of `CartfileEntry` or a `PodBuilderInfo` creates a list of
@@ -475,6 +491,7 @@ deriveFrameworkVectors romeMap =
 deriveFrameworkNamesAndVersion
   :: RepositoryMap -> BuildTypeSpecificConfiguration -> [FrameworkVersion]
 deriveFrameworkNamesAndVersion romeMap buildTypeConfig =
+  -- TODO pull the buildTypeConfig up into deriveFrameworkVectors 
   case buildTypeConfig of
     CarthageConfig { _cartfileEntries = cartfileEntries } ->
       deriveFrameworkNamesAndVersionCarthage romeMap cartfileEntries

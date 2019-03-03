@@ -34,8 +34,12 @@ newtype CachePrefix = CachePrefix { _unCachePrefix :: String }
                                   deriving (Show, Eq)
 
 -- | Represents a framework with a mapping to local and remote paths
-data FrameworkVector = FrameworkVector { _vectorFrameworkVersion :: FrameworkVersion }
-                                       deriving (Show, Eq)
+data FrameworkVector = FrameworkVector { _vectorFrameworkVersion :: FrameworkVersion
+                                         , _remoteFrameworkPath :: TargetPlatform -> InvertedRepositoryMap -> String
+                                       }
+
+instance Show FrameworkVector where
+    show (FrameworkVector fv _) = "FrameworkVector " <> show fv
 
 -- | Represents the name of a framework together with its version
 data FrameworkVersion = FrameworkVersion { _framework        :: Framework

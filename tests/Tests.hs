@@ -22,7 +22,7 @@ nonEmptyString :: Gen String
 nonEmptyString = listOf1 arbitrary
 
 instance Arbitrary FrameworkVector where
-  arbitrary = liftM FrameworkVector arbitrary
+  arbitrary = liftM (\fv -> FrameworkVector{_vectorFrameworkVersion = fv, _remoteFrameworkPath = (\x y -> "")}) arbitrary
 
 instance Arbitrary FrameworkVersion where
   arbitrary = liftM2 FrameworkVersion arbitrary arbitrary
@@ -56,10 +56,13 @@ prop_filterByNameEqualTo_model ls n =
 prop_filterOutFrameworkNamesAndVersionsIfNotIn_idempotent
   :: [FrameworkVector] -> [Framework] -> Bool
 prop_filterOutFrameworkNamesAndVersionsIfNotIn_idempotent ls ns =
-  filterOutFrameworksAndVersionsIfNotIn ls ns
-    == filterOutFrameworksAndVersionsIfNotIn
-         (filterOutFrameworksAndVersionsIfNotIn ls ns)
-         ns
+  map _vectorFrameworkVersion (filterOutFrameworksAndVersionsIfNotIn ls ns)
+    == map
+         _vectorFrameworkVersion
+         (filterOutFrameworksAndVersionsIfNotIn
+           (filterOutFrameworksAndVersionsIfNotIn ls ns)
+           ns
+         )
 
 prop_filterOutFrameworkNamesAndVersionsIfNotIn_smaller
   :: [FrameworkVector] -> [Framework] -> Bool
@@ -70,7 +73,7 @@ prop_filterOutFrameworkNamesAndVersionsIfNotIn_filterAllOut
   :: [Version] -> [Framework] -> Bool
 prop_filterOutFrameworkNamesAndVersionsIfNotIn_filterAllOut vs fws =
   null
-    $ (FrameworkVector <$> (FrameworkVersion <$> fws <*> vs))
+    $ (FrameworkVector <$> (FrameworkVersion <$> fws <*> vs) <*> [(\x y -> "")])
     `filterOutFrameworksAndVersionsIfNotIn` fws
 
 prop_split_length :: Char -> String -> Property

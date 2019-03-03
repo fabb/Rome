@@ -14,19 +14,19 @@ import           Utils
 
 
 
--- | Probes the caches described by `RomeCacheInfo` to check whether a list of `FrameworkVersion` is present or not
+-- | Probes the caches described by `RomeCacheInfo` to check whether a list of `FrameworkVector` is present or not
 -- | in the caches for each `TargetPlatform`
 probeS3ForFrameworks
   :: S3.BucketName -- ^ The cache definition.
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
-  -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` to probe for.
+  -> [FrameworkVector] -- ^ A list of `FrameworkVector` to probe for.
   -> [TargetPlatform] -- ^ A list target platforms restricting the scope of this action.
   -> ReaderT (AWS.Env, CachePrefix, Bool) IO [FrameworkAvailability]
-probeS3ForFrameworks s3BucketName reverseRomeMap frameworkVersions platforms =
-  mapConcurrently probe frameworkVersions
+probeS3ForFrameworks s3BucketName reverseRomeMap frameworkVectors platforms =
+  mapConcurrently probe frameworkVectors
  where
-  probe fVersions =
-    probeS3ForFramework s3BucketName reverseRomeMap fVersions platforms
+  probe fVector =
+    probeS3ForFramework s3BucketName reverseRomeMap fVector platforms
 
 
 
@@ -34,15 +34,16 @@ probeS3ForFrameworks s3BucketName reverseRomeMap frameworkVersions platforms =
 probeS3ForFramework
   :: S3.BucketName -- ^ The cache definition.
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
-  -> FrameworkVersion -- ^ The `FrameworkVersion` to probe for.
+  -> FrameworkVector -- ^ The `FrameworkVector` to probe for.
   -> [TargetPlatform] -- ^ A list target platforms restricting the scope of this action.
   -> ReaderT (AWS.Env, CachePrefix, Bool) IO FrameworkAvailability
-probeS3ForFramework s3BucketName reverseRomeMap frameworkVersion platforms =
-  fmap (FrameworkAvailability frameworkVersion) probeForEachPlatform
+probeS3ForFramework s3BucketName reverseRomeMap frameworkVector@(FrameworkVector frameworkVersion _) platforms
+  = fmap (FrameworkAvailability frameworkVersion) probeForEachPlatform
  where
   probeForEachPlatform = mapConcurrently
-    (probeS3ForFrameworkOnPlatform s3BucketName reverseRomeMap frameworkVersion)
-    (platforms `intersect` (_frameworkPlatforms . _framework $ frameworkVersion))
+    (probeS3ForFrameworkOnPlatform s3BucketName reverseRomeMap frameworkVector)
+    (platforms `intersect` (_frameworkPlatforms . _framework $ frameworkVersion)
+    )
 
 
 
@@ -50,10 +51,10 @@ probeS3ForFramework s3BucketName reverseRomeMap frameworkVersion platforms =
 probeS3ForFrameworkOnPlatform
   :: S3.BucketName -- ^ The cache definition.
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
-  -> FrameworkVersion -- ^ The `FrameworkVersion` to probe for.
+  -> FrameworkVector -- ^ The `FrameworkVector` to probe for.
   -> TargetPlatform -- ^ A target platforms restricting the scope of this action.
   -> ReaderT (AWS.Env, CachePrefix, Bool) IO PlatformAvailability
-probeS3ForFrameworkOnPlatform s3BucketName reverseRomeMap (FrameworkVersion fwn v) platform
+probeS3ForFrameworkOnPlatform s3BucketName reverseRomeMap frameworkVector platform
   = do
     (env, CachePrefix prefixStr, _) <- ask
     let isAvailable =
@@ -66,7 +67,7 @@ probeS3ForFrameworkOnPlatform s3BucketName reverseRomeMap (FrameworkVersion fwn 
     S3.ObjectKey
       .   T.pack
       $   cPrefix
-      </> remoteFrameworkPath platform reverseRomeMap fwn v
+      </> _remoteFrameworkPath frameworkVector platform reverseRomeMap
 
 
 
