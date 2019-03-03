@@ -21,6 +21,9 @@ import           Test.QuickCheck
 nonEmptyString :: Gen String
 nonEmptyString = listOf1 arbitrary
 
+instance Arbitrary FrameworkVector where
+  arbitrary = liftM FrameworkVector arbitrary
+
 instance Arbitrary FrameworkVersion where
   arbitrary = liftM2 FrameworkVersion arbitrary arbitrary
 
@@ -51,7 +54,7 @@ prop_filterByNameEqualTo_model ls n =
     == filter (== n) (map _framework ls)
 
 prop_filterOutFrameworkNamesAndVersionsIfNotIn_idempotent
-  :: [FrameworkVersion] -> [Framework] -> Bool
+  :: [FrameworkVector] -> [Framework] -> Bool
 prop_filterOutFrameworkNamesAndVersionsIfNotIn_idempotent ls ns =
   filterOutFrameworksAndVersionsIfNotIn ls ns
     == filterOutFrameworksAndVersionsIfNotIn
@@ -59,14 +62,16 @@ prop_filterOutFrameworkNamesAndVersionsIfNotIn_idempotent ls ns =
          ns
 
 prop_filterOutFrameworkNamesAndVersionsIfNotIn_smaller
-  :: [FrameworkVersion] -> [Framework] -> Bool
+  :: [FrameworkVector] -> [Framework] -> Bool
 prop_filterOutFrameworkNamesAndVersionsIfNotIn_smaller ls ns =
   length (filterOutFrameworksAndVersionsIfNotIn ls ns) <= length ls
 
 prop_filterOutFrameworkNamesAndVersionsIfNotIn_filterAllOut
   :: [Version] -> [Framework] -> Bool
-prop_filterOutFrameworkNamesAndVersionsIfNotIn_filterAllOut vs fws = 
-  null $ (FrameworkVersion <$> fws <*> vs) `filterOutFrameworksAndVersionsIfNotIn` fws
+prop_filterOutFrameworkNamesAndVersionsIfNotIn_filterAllOut vs fws =
+  null
+    $ (FrameworkVector <$> (FrameworkVersion <$> fws <*> vs))
+    `filterOutFrameworksAndVersionsIfNotIn` fws
 
 prop_split_length :: Char -> String -> Property
 prop_split_length sep ls =

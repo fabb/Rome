@@ -257,22 +257,22 @@ filterByFrameworkEqualTo versions f =
 
 
 
--- | Given a list of `FrameworkVersion` and a list of `Framework`
--- | filters out of the list of `FrameworkVersion` elements that don't apper
+-- | Given a list of `FrameworkVector` and a list of `Framework`
+-- | filters out of the list of `FrameworkVector` elements that don't apper
 -- | in the list of `Framework`.
 filterOutFrameworksAndVersionsIfNotIn
-  :: [FrameworkVersion] -> [Framework] -> [FrameworkVersion]
-filterOutFrameworksAndVersionsIfNotIn versions frameworks = do
-  ver@(FrameworkVersion f@(Framework n t ps) v) <- versions -- For each version
+  :: [FrameworkVector] -> [Framework] -> [FrameworkVector]
+filterOutFrameworksAndVersionsIfNotIn vectors frameworks = do
+  vec@(FrameworkVector ver@(FrameworkVersion f@(Framework n t ps) v)) <- vectors -- For each version
   let filtered =
         (\(Framework nF tF psF) -> nF == n && tF == t) `filter` frameworks -- filter the frameworks to exclude based on name and type, not on the platforms
   if null filtered -- If none match
-    then return ver -- don't filter this FrameworkVersion out
+    then return vec -- don't filter this FrameworkVector out
     else do  -- if there there are matches
       let op =
             f `removePlatformsIn` nub (concatMap _frameworkPlatforms filtered)
-      guard (not . null $ _frameworkPlatforms op) -- if the entry completely filters out the FrameworkVersion then remove it
-      return $ FrameworkVersion op v -- if it doesn't, then remove from f the platforms that appear in the filter above.
+      guard (not . null $ _frameworkPlatforms op) -- if the entry completely filters out the FrameworkVector then remove it
+      return $ FrameworkVector $ FrameworkVersion op v -- if it doesn't, then remove from f the platforms that appear in the filter above.
  where
   removePlatformsIn :: Framework -> [TargetPlatform] -> Framework
   removePlatformsIn (Framework n t ps) rPs =
@@ -456,7 +456,19 @@ formattedPlatformAvailability p = availabilityPrefix p ++ platformName p
   availabilityPrefix (PlatformAvailability _ False) = "-"
   platformName = show . _availabilityPlatform
 
+-- | Given a list of `FrameworkVersion` creates a list of `FrameworkVector`s
+createFrameworkVectorsForCurrentFrameworkVersions
+  :: [FrameworkVersion] -> [FrameworkVector]
+createFrameworkVectorsForCurrentFrameworkVersions = map FrameworkVector
+  -- TODO extract to method that creates all the other fields necessary for FrameworkVector once they are introduced
 
+-- | Given a `RepositoryMap` and either a list of `CartfileEntry` or a `PodBuilderInfo` creates a list of
+-- | `FrameworkVector`s. See `deriveFrameworkNameAndVersion` for details.
+deriveFrameworkVectors
+  :: RepositoryMap -> BuildTypeSpecificConfiguration -> [FrameworkVector]
+deriveFrameworkVectors romeMap =
+  map FrameworkVector . deriveFrameworkNamesAndVersion romeMap
+  -- TODO add fields for paths to FrameworkVector and create them here
 
 -- | Given a `RepositoryMap` and either a list of `CartfileEntry` or a `PodBuilderInfo` creates a list of
 -- | `FrameworkVersion`s. See `deriveFrameworkNameAndVersion` for details.

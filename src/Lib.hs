@@ -180,10 +180,8 @@ runUDCCommand command absoluteRomefilePath verbose romeVersion = do
               toInvertedRepositoryMap finalRepositoryMapEntries
         let finalIgnoreNames =
               if _noIgnore noIgnoreFlag then [] else ignoreFrameworks
-        let derivedFrameworkVersions =
-              deriveFrameworkNamesAndVersion repositoryMap buildTypeConfig
-        let frameworkVersions =
-              derivedFrameworkVersions
+        let derivedFrameworkVectors = deriveFrameworkVectors repositoryMap buildTypeConfig
+        let frameworkVectors = derivedFrameworkVectors
                 `filterOutFrameworksAndVersionsIfNotIn` finalIgnoreNames
         let cachePrefix = CachePrefix cachePrefixString
         let filteredCurrentMapEntries =
@@ -193,6 +191,7 @@ runUDCCommand command absoluteRomefilePath verbose romeVersion = do
               concatMap (snd . romeFileEntryToTuple) filteredCurrentMapEntries
         let currentFrameworkVersions =
               map (flip FrameworkVersion currentVersion) currentFrameworks
+        let currentFrameworkVectors = createFrameworkVectorsForCurrentFrameworkVersions currentFrameworkVersions
         let currentInvertedMap =
               toInvertedRepositoryMap filteredCurrentMapEntries
 
@@ -205,13 +204,13 @@ runUDCCommand command absoluteRomefilePath verbose romeVersion = do
               then currentInvertedMap
               else M.empty
             )
-            (frameworkVersions <> if _noSkipCurrent noSkipCurrentFlag
+            (map _vectorFrameworkVersion (frameworkVectors <> if _noSkipCurrent noSkipCurrentFlag
               then
-                (currentFrameworkVersions
+                (currentFrameworkVectors
                 `filterOutFrameworksAndVersionsIfNotIn` finalIgnoreNames
                 )
               else []
-            )
+            ))
             platforms
             printFormat
           )
@@ -284,8 +283,7 @@ performWithDefaultFlow flowFunc buildTypeConfig (verbose, noIgnoreFlag, skipLoca
 
     if null gitRepoNames
       then
-        let derivedFrameworkVersions =
-              deriveFrameworkNamesAndVersion repositoryMap buildTypeConfig
+        let derivedFrameworkVectors = deriveFrameworkVectors repositoryMap buildTypeConfig
             cachePrefix = CachePrefix cachePrefixString
         in  do
               runReaderT
@@ -294,7 +292,7 @@ performWithDefaultFlow flowFunc buildTypeConfig (verbose, noIgnoreFlag, skipLoca
                   mS3BucketName
                   mlCacheDir
                   reverseRepositoryMap
-                  (derivedFrameworkVersions
+                  (map _vectorFrameworkVersion $ derivedFrameworkVectors
                   `filterOutFrameworksAndVersionsIfNotIn` finalIgnoreNames
                   )
                   platforms
@@ -310,6 +308,7 @@ performWithDefaultFlow flowFunc buildTypeConfig (verbose, noIgnoreFlag, skipLoca
                 let currentFrameworkVersions = map
                       (flip FrameworkVersion currentVersion)
                       currentFrameworks
+                let currentFrameworkVectors = createFrameworkVectorsForCurrentFrameworkVersions currentFrameworkVersions
                 let currentInvertedMap =
                       toInvertedRepositoryMap filteredCurrentMapEntries
                 runReaderT
@@ -318,9 +317,7 @@ performWithDefaultFlow flowFunc buildTypeConfig (verbose, noIgnoreFlag, skipLoca
                     mS3BucketName
                     mlCacheDir
                     currentInvertedMap
-                    (currentFrameworkVersions
-                    `filterOutFrameworksAndVersionsIfNotIn` finalIgnoreNames
-                    )
+                    (map _vectorFrameworkVersion $ currentFrameworkVectors `filterOutFrameworksAndVersionsIfNotIn` finalIgnoreNames)
                     platforms
                   )
                   (cachePrefix, skipLocalCache, concurrentlyFlag, verbose)
@@ -336,21 +333,20 @@ performWithDefaultFlow flowFunc buildTypeConfig (verbose, noIgnoreFlag, skipLoca
         let currentFrameworkVersions =
               map (flip FrameworkVersion currentVersion) currentFrameworks
         let
-          derivedFrameworkVersions = deriveFrameworkNamesAndVersion
-            repositoryMap
-            (filterEntriesByGitRepoNames gitRepoNames buildTypeConfig)
-          frameworkVersions =
-            (derivedFrameworkVersions <> currentFrameworkVersions)
-              `filterOutFrameworksAndVersionsIfNotIn` finalIgnoreNames
-          cachePrefix = CachePrefix cachePrefixString
-          currentInvertedMap =
-            toInvertedRepositoryMap filteredCurrentMapEntries
+          currentFrameworkVectors = createFrameworkVectorsForCurrentFrameworkVersions currentFrameworkVersions
+        let derivedFrameworkVectors = deriveFrameworkVectors repositoryMap (filterEntriesByGitRepoNames gitRepoNames buildTypeConfig)
+            frameworkVectors =
+              (derivedFrameworkVectors <> currentFrameworkVectors)
+                `filterOutFrameworksAndVersionsIfNotIn` finalIgnoreNames
+            cachePrefix = CachePrefix cachePrefixString
+            currentInvertedMap =
+              toInvertedRepositoryMap filteredCurrentMapEntries
         runReaderT
           (flowFunc buildTypeConfig
                     mS3BucketName
                     mlCacheDir
                     (reverseRepositoryMap <> currentInvertedMap)
-                    frameworkVersions
+                    (map _vectorFrameworkVersion frameworkVectors)
                     platforms
           )
           (cachePrefix, skipLocalCache, concurrentlyFlag, verbose)
