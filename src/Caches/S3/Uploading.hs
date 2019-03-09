@@ -25,20 +25,24 @@ uploadFrameworkToS3
   :: Zip.Archive -- ^ The `Zip.Archive` of the Framework.
   -> S3.BucketName -- ^ The cache definition.
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
-  -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework.
+  -> FrameworkVector -- ^ The `FrameworkVector` identifying the Framework.
   -> TargetPlatform -- ^ A `TargetPlatform`s restricting the scope of this action.
   -> ReaderT UploadDownloadEnv IO ()
-uploadFrameworkToS3 frameworkArchive s3BucketName reverseRomeMap (FrameworkVersion f@(Framework fwn fwt fwps) version) platform
-  = when (platform `elem` fwps) $ do
-    (env, CachePrefix prefix, verbose) <- ask
+uploadFrameworkToS3 frameworkArchive s3BucketName reverseRomeMap fVector platform
+  = when (vectorSupportsPlatform fVector platform) $ do
+    (env, cachePrefix, verbose) <- ask
     withReaderT (const (env, verbose)) $ uploadBinary
       s3BucketName
       (Zip.fromArchive frameworkArchive)
-      (prefix </> remoteFrameworkUploadPath)
-      fwn
+      (temp_remoteFrameworkUploadPath platform
+                                      reverseRomeMap
+                                      fVector
+                                      cachePrefix
+      )
+      verboseDebugName
  where
-  remoteFrameworkUploadPath =
-    remoteFrameworkPath platform reverseRomeMap f version
+  verboseDebugName =
+    (_frameworkName $ _framework $ _vectorFrameworkVersion fVector)
 
 
 
@@ -47,18 +51,21 @@ uploadDsymToS3
   :: Zip.Archive -- ^ The `Zip.Archive` of the dSYM.
   -> S3.BucketName -- ^ The cache definition.
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
-  -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework and the dSYM.
+  -> FrameworkVector -- ^ The `FrameworkVector` identifying the Framework and the dSYM.
   -> TargetPlatform -- ^ A `TargetPlatform` restricting the scope of this action.
   -> ReaderT UploadDownloadEnv IO ()
-uploadDsymToS3 dSYMArchive s3BucketName reverseRomeMap (FrameworkVersion f@(Framework fwn fwt fwps) version) platform
-  = when (platform `elem` fwps) $ do
-    (env, CachePrefix prefix, verbose) <- ask
+uploadDsymToS3 dSYMArchive s3BucketName reverseRomeMap fVector platform =
+  when (vectorSupportsPlatform fVector platform) $ do
+    (env, cachePrefix, verbose) <- ask
     withReaderT (const (env, verbose)) $ uploadBinary
       s3BucketName
       (Zip.fromArchive dSYMArchive)
-      (prefix </> remoteDsymUploadPath)
-      (fwn <> ".dSYM")
-  where remoteDsymUploadPath = remoteDsymPath platform reverseRomeMap f version
+      (temp_remoteDsymUploadPath platform reverseRomeMap fVector cachePrefix)
+      verboseDebugName
+ where
+  verboseDebugName =
+    (_frameworkName $ _framework $ _vectorFrameworkVersion fVector) <> ".dSYM"
+
 
 
 
@@ -68,20 +75,27 @@ uploadBcsymbolmapToS3
   -> Zip.Archive -- ^ The `Zip.Archive` of the dSYM.
   -> S3.BucketName -- ^ The cache definition.
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
-  -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework and the dSYM.
+  -> FrameworkVector -- ^ The `FrameworkVector` identifying the Framework and the dSYM.
   -> TargetPlatform -- ^ A `TargetPlatform` restricting the scope of this action.
   -> ReaderT UploadDownloadEnv IO ()
-uploadBcsymbolmapToS3 dwarfUUID dwarfArchive s3BucketName reverseRomeMap (FrameworkVersion f@(Framework fwn fwt fwps) version) platform
-  = when (platform `elem` fwps) $ do
-    (env, CachePrefix prefix, verbose) <- ask
+uploadBcsymbolmapToS3 dwarfUUID dwarfArchive s3BucketName reverseRomeMap fVector platform
+  = when (vectorSupportsPlatform fVector platform) $ do
+    (env, cachePrefix, verbose) <- ask
     withReaderT (const (env, verbose)) $ uploadBinary
       s3BucketName
       (Zip.fromArchive dwarfArchive)
-      (prefix </> remoteBcsymbolmapUploadPath)
-      (fwn <> "." <> bcsymbolmapNameFrom dwarfUUID)
+      (temp_remoteBcSymbolmapUploadPath platform
+                                        reverseRomeMap
+                                        fVector
+                                        cachePrefix
+                                        dwarfUUID
+      )
+      verboseDebugName
  where
-  remoteBcsymbolmapUploadPath =
-    remoteBcsymbolmapPath dwarfUUID platform reverseRomeMap f version
+  verboseDebugName =
+    (_frameworkName $ _framework $ _vectorFrameworkVersion fVector)
+      <> "."
+      <> bcsymbolmapNameFrom dwarfUUID
 
 
 
@@ -101,7 +115,6 @@ uploadVersionFileToS3 s3BucketName versionFileContent projectNameAndVersion =
       (prefix </> versionFileRemotePath)
       versionFileName
  where
-
   versionFileName = versionFileNameForProjectName $ fst projectNameAndVersion
   versionFileRemotePath = remoteVersionFilePath projectNameAndVersion
 

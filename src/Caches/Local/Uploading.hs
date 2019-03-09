@@ -26,22 +26,25 @@ saveFrameworkToLocalCache
   :: FilePath -- ^ The cache definition.
   -> Zip.Archive -- ^ The zipped archive of the Framework
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
-  -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the dSYM.
+  -> FrameworkVector -- ^ The `FrameworkVector` identifying the dSYM.
   -> TargetPlatform -- ^ A `TargetPlatform` to limit the operation to.
   -> ReaderT (CachePrefix, SkipLocalCacheFlag, Bool) IO ()
-saveFrameworkToLocalCache lCacheDir frameworkArchive reverseRomeMap (FrameworkVersion f@(Framework _ _ fwps) version) platform
-  = when (platform `elem` fwps) $ do
-    (CachePrefix prefix, SkipLocalCacheFlag skipLocalCache, verbose) <- ask
+saveFrameworkToLocalCache lCacheDir frameworkArchive reverseRomeMap fVector platform
+  = when (vectorSupportsPlatform fVector platform) $ do
+    (cachePrefix, SkipLocalCacheFlag skipLocalCache, verbose) <- ask
     unless skipLocalCache $ saveBinaryToLocalCache
       lCacheDir
       (Zip.fromArchive frameworkArchive)
-      (prefix </> remoteFrameworkUploadPath)
-      frameworkNameWithFrameworkExtension
+      (temp_remoteFrameworkUploadPath platform
+                                      reverseRomeMap
+                                      fVector
+                                      cachePrefix
+      )
+      verboseDebugName
       verbose
  where
-  remoteFrameworkUploadPath =
-    remoteFrameworkPath platform reverseRomeMap f version
-  frameworkNameWithFrameworkExtension = appendFrameworkExtensionTo f
+  verboseDebugName =
+    appendFrameworkExtensionTo (_framework $ _vectorFrameworkVersion fVector)
 
 
 
@@ -50,20 +53,21 @@ saveDsymToLocalCache
   :: FilePath -- ^ The cache definition.
   -> Zip.Archive -- ^ The zipped archive of the dSYM.
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
-  -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the dSYM.
+  -> FrameworkVector -- ^ The `FrameworkVector` identifying the dSYM.
   -> TargetPlatform -- ^ A `TargetPlatform` to limit the operation to.
   -> ReaderT (CachePrefix, SkipLocalCacheFlag, Bool) IO ()
-saveDsymToLocalCache lCacheDir dSYMArchive reverseRomeMap (FrameworkVersion f@(Framework fwn fwt fwps) version) platform
-  = when (platform `elem` fwps) $ do
-    (CachePrefix prefix, SkipLocalCacheFlag skipLocalCache, verbose) <- ask
+saveDsymToLocalCache lCacheDir dSYMArchive reverseRomeMap fVector platform =
+  when (vectorSupportsPlatform fVector platform) $ do
+    (cachePrefix, SkipLocalCacheFlag skipLocalCache, verbose) <- ask
     unless skipLocalCache $ saveBinaryToLocalCache
       lCacheDir
       (Zip.fromArchive dSYMArchive)
-      (prefix </> remoteDsymUploadPath)
-      (fwn <> ".dSYM")
+      (temp_remoteDsymUploadPath platform reverseRomeMap fVector cachePrefix)
+      verboseDebugName
       verbose
-  where remoteDsymUploadPath = remoteDsymPath platform reverseRomeMap f version
-
+ where
+  verboseDebugName =
+    (_frameworkName $ _framework $ _vectorFrameworkVersion fVector) <> ".dSYM"
 
 
 -- | Saves a bcsymbolmap `Zip.Archive` to a local cache.
@@ -72,21 +76,25 @@ saveBcsymbolmapToLocalCache
   -> DwarfUUID -- ^ The UUID of the bcsymbolmap
   -> Zip.Archive -- ^ The zipped archive of the bcsymbolmap.
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
-  -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the dSYM.
+  -> FrameworkVector -- ^ The `FrameworkVector` identifying the dSYM.
   -> TargetPlatform -- ^ A `TargetPlatform` to limit the operation to.
   -> ReaderT (CachePrefix, SkipLocalCacheFlag, Bool) IO ()
-saveBcsymbolmapToLocalCache lCacheDir dwarfUUID dwarfArchive reverseRomeMap (FrameworkVersion f@(Framework _ _ fwps) version) platform
-  = when (platform `elem` fwps) $ do
-    (CachePrefix prefix, SkipLocalCacheFlag skipLocalCache, verbose) <- ask
+saveBcsymbolmapToLocalCache lCacheDir dwarfUUID dwarfArchive reverseRomeMap fVector platform
+  = when (vectorSupportsPlatform fVector platform) $ do
+    (cachePrefix, SkipLocalCacheFlag skipLocalCache, verbose) <- ask
     unless skipLocalCache $ saveBinaryToLocalCache
       lCacheDir
       (Zip.fromArchive dwarfArchive)
-      (prefix </> remoteBcSymbolmapUploadPath)
-      (bcsymbolmapNameFrom dwarfUUID)
+      (temp_remoteBcSymbolmapUploadPath platform
+                                        reverseRomeMap
+                                        fVector
+                                        cachePrefix
+                                        dwarfUUID
+      )
+      verboseDebugName
       verbose
- where
-  remoteBcSymbolmapUploadPath =
-    remoteBcsymbolmapPath dwarfUUID platform reverseRomeMap f version
+  where verboseDebugName = (bcsymbolmapNameFrom dwarfUUID)
+
 
 
 
