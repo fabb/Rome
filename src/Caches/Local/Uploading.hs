@@ -35,7 +35,7 @@ saveFrameworkToLocalCache lCacheDir frameworkArchive reverseRomeMap fVector plat
     unless skipLocalCache $ saveBinaryToLocalCache
       lCacheDir
       (Zip.fromArchive frameworkArchive)
-      (temp_remoteFrameworkUploadPath platform
+      (temp_remoteFrameworkPath platform
                                       reverseRomeMap
                                       fVector
                                       cachePrefix
@@ -63,7 +63,7 @@ saveDsymToLocalCache lCacheDir dSYMArchive reverseRomeMap fVector platform =
     unless skipLocalCache $ saveBinaryToLocalCache
       lCacheDir
       (Zip.fromArchive dSYMArchive)
-      (temp_remoteDsymUploadPath platform reverseRomeMap fVector cachePrefix)
+      (temp_remoteDsymPath platform reverseRomeMap fVector cachePrefix)
       verboseDebugName
       verbose
  where
@@ -87,7 +87,7 @@ saveBcsymbolmapToLocalCache lCacheDir dwarfUUID dwarfArchive reverseRomeMap fVec
     unless skipLocalCache $ saveBinaryToLocalCache
       lCacheDir
       (Zip.fromArchive dwarfArchive)
-      (temp_remoteBcSymbolmapUploadPath platform
+      (temp_remoteBcSymbolmapPath platform
                                         reverseRomeMap
                                         fVector
                                         cachePrefix

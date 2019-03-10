@@ -34,7 +34,7 @@ uploadFrameworkToS3 frameworkArchive s3BucketName reverseRomeMap fVector platfor
     withReaderT (const (env, verbose)) $ uploadBinary
       s3BucketName
       (Zip.fromArchive frameworkArchive)
-      (temp_remoteFrameworkUploadPath platform
+      (temp_remoteFrameworkPath platform
                                       reverseRomeMap
                                       fVector
                                       cachePrefix
@@ -61,7 +61,7 @@ uploadDsymToS3 dSYMArchive s3BucketName reverseRomeMap fVector platform =
     withReaderT (const (env, verbose)) $ uploadBinary
       s3BucketName
       (Zip.fromArchive dSYMArchive)
-      (temp_remoteDsymUploadPath platform reverseRomeMap fVector cachePrefix)
+      (temp_remoteDsymPath platform reverseRomeMap fVector cachePrefix)
       verboseDebugName
  where
   -- TODO move to FrameworkVector?
@@ -86,7 +86,7 @@ uploadBcsymbolmapToS3 dwarfUUID dwarfArchive s3BucketName reverseRomeMap fVector
     withReaderT (const (env, verbose)) $ uploadBinary
       s3BucketName
       (Zip.fromArchive dwarfArchive)
-      (temp_remoteBcSymbolmapUploadPath platform
+      (temp_remoteBcSymbolmapPath platform
                                         reverseRomeMap
                                         fVector
                                         cachePrefix

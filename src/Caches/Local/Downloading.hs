@@ -53,7 +53,7 @@ getFrameworkFromLocalCache lCacheDir cachePrefix reverseRomeMap fVector platform
   --  TODO move to FrameworkVector?
   frameworkLocalCachePath cPrefix =
     lCacheDir
-      </> temp_remoteFrameworkUploadPath platform reverseRomeMap fVector cPrefix
+      </> temp_remoteFrameworkPath platform reverseRomeMap fVector cPrefix
   verboseFrameworkDebugName =
     (_frameworkName $ _framework $ _vectorFrameworkVersion fVector)
 
@@ -123,11 +123,11 @@ getBcsymbolmapFromLocalCache lCacheDir cachePrefix reverseRomeMap fVector platfo
  where
   bcsymbolmapLocalCachePath cPrefix =
     lCacheDir
-      </> temp_remoteBcSymbolmapUploadPath platform
-                                           reverseRomeMap
-                                           fVector
-                                           cPrefix
-                                           dwarfUUID
+      </> temp_remoteBcSymbolmapPath platform
+                                     reverseRomeMap
+                                     fVector
+                                     cPrefix
+                                     dwarfUUID
   --  TODO move to FrameworkVector?
   bcsymbolmapName =
     (_frameworkName $ _framework $ _vectorFrameworkVersion fVector)
@@ -166,7 +166,7 @@ getDSYMFromLocalCache lCacheDir cachePrefix reverseRomeMap fVector platform =
   -- TODO move to FrameworkVector?
   dSYMLocalCachePath =
     lCacheDir
-      </> temp_remoteDsymUploadPath platform reverseRomeMap fVector cachePrefix
+      </> temp_remoteDsymPath platform reverseRomeMap fVector cachePrefix
   dSYMName =
     (_frameworkName $ _framework $ _vectorFrameworkVersion fVector) <> ".dSYM"
 
@@ -207,7 +207,7 @@ getAndUnzipBcsymbolmapFromLocalCache buildTypeConfig lCacheDir reverseRomeMap fV
       <> bcsymbolmapNameFrom dwarfUUID
   frameworkLocalCachePath cPrefix =
     lCacheDir
-      </> temp_remoteFrameworkUploadPath platform reverseRomeMap fVector cPrefix
+      </> temp_remoteFrameworkPath platform reverseRomeMap fVector cPrefix
   bcsymbolmapZipName d = bcsymbolmapArchiveName
     d
     (_frameworkVersion $ _vectorFrameworkVersion fVector)
@@ -230,7 +230,7 @@ getAndUnzipBcsymbolmapsFromLocalCache buildTypeConfig lCacheDir reverseRomeMap f
     let sayFunc = if verbose then sayLnWithTime else sayLn
 
     dwarfUUIDs <- dwarfUUIDsFrom
-      $ temp_localFrameworkBinaryPath buildTypeConfig platform fVector
+      $ temp_frameworkBinaryPath buildTypeConfig platform fVector
     mapM_
       (\dwarfUUID ->
         getAndUnzipBcsymbolmapFromLocalCache buildTypeConfig
@@ -260,7 +260,7 @@ getAndUnzipBcsymbolmapsFromLocalCache'
 getAndUnzipBcsymbolmapsFromLocalCache' buildTypeConfig lCacheDir reverseRomeMap fVector platform
   = when (vectorSupportsPlatform fVector platform) $ do
     dwarfUUIDs <- withExceptT (const ErrorGettingDwarfUUIDs) $ dwarfUUIDsFrom
-      (temp_localFrameworkBinaryPath buildTypeConfig platform fVector)
+      (temp_frameworkBinaryPath buildTypeConfig platform fVector)
     eitherDwarfUUIDsOrSucces <- forM
       dwarfUUIDs
       (\dwarfUUID -> lift $ runExceptT
@@ -342,14 +342,14 @@ getAndUnzipFrameworkFromLocalCache buildTypeConfig lCacheDir reverseRomeMap fVec
   -- TODO move to FrameworkVector?
   frameworkLocalCachePath cPrefix =
     lCacheDir
-      </> temp_remoteFrameworkUploadPath platform reverseRomeMap fVector cPrefix
+      </> temp_remoteFrameworkPath platform reverseRomeMap fVector cPrefix
   verboseFrameworkDebugName =
     (_frameworkName $ _framework $ _vectorFrameworkVersion fVector)
   frameworkZipName = frameworkArchiveName
     (_framework $ _vectorFrameworkVersion fVector)
     (_frameworkVersion $ _vectorFrameworkVersion fVector)
   frameworkExecutablePath =
-    temp_localFrameworkBinaryPath buildTypeConfig platform fVector
+    temp_frameworkBinaryPath buildTypeConfig platform fVector
 
 
 

@@ -740,7 +740,7 @@ deleteFrameworkDirectory
   -> Bool -- ^ A flag controlling verbosity
   -> m ()
 deleteFrameworkDirectory buildTypeConfig fVector platform =
-  deleteDirectory $ temp_frameworkDirectory buildTypeConfig platform fVector
+  deleteDirectory $ temp_frameworkPath buildTypeConfig platform fVector
 
 
 
@@ -753,7 +753,7 @@ deleteDSYMDirectory
   -> Bool -- ^ A flag controlling verbosity
   -> m ()
 deleteDSYMDirectory buildTypeConfig fVector platform =
-  deleteDirectory $ temp_dSYMdirectory buildTypeConfig platform fVector
+  deleteDirectory $ temp_dSYMPath buildTypeConfig platform fVector
 
 
 
@@ -849,31 +849,31 @@ fromFile f action = do
 -- TODO These should be moved to field functions on FrameworkVector, so they can be different per build type, but not need to get the build type as parameter
 -- TODO remove "Upload" from function names
 
-temp_frameworkDirectory
+temp_frameworkPath
   :: BuildTypeSpecificConfiguration
   -> TargetPlatform
   -> FrameworkVector
   -> FilePath
-temp_frameworkDirectory buildTypeConfig platform fVector =
-  temp_platformBuildDirectory buildTypeConfig platform fVector
+temp_frameworkPath buildTypeConfig platform fVector =
+  temp_platformBuildPath buildTypeConfig platform fVector
     </> temp_frameworkNameWithFrameworkExtension fVector
 
-temp_dSYMdirectory
+temp_dSYMPath
   :: BuildTypeSpecificConfiguration
   -> TargetPlatform
   -> FrameworkVector
   -> FilePath
-temp_dSYMdirectory buildTypeConfig platform fVector =
-  temp_platformBuildDirectory buildTypeConfig platform fVector
+temp_dSYMPath buildTypeConfig platform fVector =
+  temp_platformBuildPath buildTypeConfig platform fVector
     </> (temp_frameworkNameWithFrameworkExtension fVector <> ".dSYM")
 
-temp_localFrameworkBinaryPath
+temp_frameworkBinaryPath
   :: BuildTypeSpecificConfiguration
   -> TargetPlatform
   -> FrameworkVector
   -> FilePath
-temp_localFrameworkBinaryPath buildTypeConfig platform fVector =
-  temp_frameworkDirectory buildTypeConfig platform fVector
+temp_frameworkBinaryPath buildTypeConfig platform fVector =
+  temp_frameworkPath buildTypeConfig platform fVector
     </> (_frameworkName $ _framework $ _vectorFrameworkVersion fVector)
 
 temp_bcSymbolMapPath
@@ -883,15 +883,15 @@ temp_bcSymbolMapPath
   -> DwarfUUID
   -> FilePath
 temp_bcSymbolMapPath buildTypeConfig platform fVector d =
-  temp_platformBuildDirectory buildTypeConfig platform fVector
+  temp_platformBuildPath buildTypeConfig platform fVector
     </> bcsymbolmapNameFrom d
 
-temp_platformBuildDirectory
+temp_platformBuildPath
   :: BuildTypeSpecificConfiguration
   -> TargetPlatform
   -> FrameworkVector
   -> FilePath
-temp_platformBuildDirectory buildTypeConfig platform fVector =
+temp_platformBuildPath buildTypeConfig platform fVector =
   artifactsBuildDirectoryForPlatform
     buildTypeConfig
     platform
@@ -901,39 +901,39 @@ temp_frameworkNameWithFrameworkExtension :: FrameworkVector -> String
 temp_frameworkNameWithFrameworkExtension fVector =
   appendFrameworkExtensionTo (_framework $ _vectorFrameworkVersion fVector)
 
-temp_remoteFrameworkUploadPath
+temp_remoteFrameworkPath
   :: TargetPlatform
   -> InvertedRepositoryMap
   -> FrameworkVector
   -> CachePrefix
   -> FilePath
-temp_remoteFrameworkUploadPath platform reverseRomeMap fVector (CachePrefix prefix)
+temp_remoteFrameworkPath platform reverseRomeMap fVector (CachePrefix prefix)
   = prefix </> remoteFrameworkPath
     platform
     reverseRomeMap
     (_framework $ _vectorFrameworkVersion fVector)
     (_frameworkVersion $ _vectorFrameworkVersion fVector)
 
-temp_remoteDsymUploadPath
+temp_remoteDsymPath
   :: TargetPlatform
   -> InvertedRepositoryMap
   -> FrameworkVector
   -> CachePrefix
   -> FilePath
-temp_remoteDsymUploadPath platform reverseRomeMap fVector (CachePrefix prefix)
+temp_remoteDsymPath platform reverseRomeMap fVector (CachePrefix prefix)
   = remoteDsymPath platform
                    reverseRomeMap
                    (_framework $ _vectorFrameworkVersion fVector)
                    (_frameworkVersion $ _vectorFrameworkVersion fVector)
 
-temp_remoteBcSymbolmapUploadPath
+temp_remoteBcSymbolmapPath
   :: TargetPlatform
   -> InvertedRepositoryMap
   -> FrameworkVector
   -> CachePrefix
   -> DwarfUUID
   -> FilePath
-temp_remoteBcSymbolmapUploadPath platform reverseRomeMap fVector (CachePrefix prefix) dwarfUUID
+temp_remoteBcSymbolmapPath platform reverseRomeMap fVector (CachePrefix prefix) dwarfUUID
   = prefix </> remoteBcsymbolmapPath
     dwarfUUID
     platform

@@ -30,7 +30,7 @@ import           Data.Romefile                  ( Framework(..) )
 import qualified Data.Text                     as T
 import qualified Network.AWS                   as AWS
 import qualified Network.AWS.S3                as S3
-import           System.Directory               (doesFileExist)
+import           System.Directory               ( doesFileExist )
 import           System.FilePath                ( (</>) )
 import           Types                   hiding ( version )
 import           Utils
@@ -54,11 +54,7 @@ getFrameworkFromS3 s3BucketName reverseRomeMap fVector platform = do
     (withReaderT (const (env, verbose)))
     (getArtifactFromS3
       s3BucketName
-      (temp_remoteFrameworkUploadPath platform
-                                      reverseRomeMap
-                                      fVector
-                                      cachePrefix
-      )
+      (temp_remoteFrameworkPath platform reverseRomeMap fVector cachePrefix)
       verboseFrameworkDebugName
     )
  where
@@ -81,7 +77,7 @@ getDSYMFromS3
 getDSYMFromS3 s3BucketName reverseRomeMap fVector platform = do
   (env, cachePrefix, verbose) <- ask
   let finalRemoteDSYMUploadPath =
-        temp_remoteDsymUploadPath platform reverseRomeMap fVector cachePrefix
+        temp_remoteDsymPath platform reverseRomeMap fVector cachePrefix
   mapExceptT (withReaderT (const (env, verbose))) $ getArtifactFromS3
     s3BucketName
     finalRemoteDSYMUploadPath
@@ -129,7 +125,7 @@ getBcsymbolmapFromS3
 getBcsymbolmapFromS3 s3BucketName reverseRomeMap fVector platform dwarfUUID =
   do
     (env, cachePrefix, verbose) <- ask
-    let finalRemoteBcsymbolmaploadPath = temp_remoteBcSymbolmapUploadPath
+    let finalRemoteBcsymbolmaploadPath = temp_remoteBcSymbolmapPath
           platform
           reverseRomeMap
           fVector
@@ -178,7 +174,8 @@ getAndUnzipFrameworkFromS3 buildTypeConfig s3BucketName reverseRomeMap fVector p
   verboseFrameworkZipName = frameworkArchiveName
     (_framework $ _vectorFrameworkVersion fVector)
     (_frameworkVersion $ _vectorFrameworkVersion fVector)
-  frameworkExecutablePath = temp_localFrameworkBinaryPath buildTypeConfig platform fVector
+  frameworkExecutablePath =
+    temp_frameworkBinaryPath buildTypeConfig platform fVector
 
 
 
@@ -265,7 +262,7 @@ getAndUnzipBcsymbolmapsFromS3' buildTypeConfig lCacheDir reverseRomeMap fVector 
   = when (vectorSupportsPlatform fVector platform) $ do
 
     dwarfUUIDs <- withExceptT (const ErrorGettingDwarfUUIDs) $ dwarfUUIDsFrom
-      (temp_localFrameworkBinaryPath buildTypeConfig platform fVector)
+      (temp_frameworkBinaryPath buildTypeConfig platform fVector)
     eitherDwarfUUIDsOrSucces <- forM
       dwarfUUIDs
       (\dwarfUUID -> lift $ runExceptT

@@ -685,7 +685,7 @@ uploadFrameworkAndArtifactsToCaches buildTypeConfig s3BucketName mlCacheDir reve
     let uploadDownloadEnv = (env, cachePrefix, verbose)
 
     void . runExceptT $ do
-      frameworkArchive <- createZipArchive (temp_frameworkDirectory buildTypeConfig platform fVector) verbose
+      frameworkArchive <- createZipArchive (temp_frameworkPath buildTypeConfig platform fVector) verbose
       unless skipLocalCache
         $   maybe (return ()) liftIO
         $   runReaderT
@@ -707,7 +707,7 @@ uploadFrameworkAndArtifactsToCaches buildTypeConfig s3BucketName mlCacheDir reve
         uploadDownloadEnv
 
     void . runExceptT $ do
-      dSYMArchive <- createZipArchive (temp_dSYMdirectory buildTypeConfig platform fVector) verbose
+      dSYMArchive <- createZipArchive (temp_dSYMPath buildTypeConfig platform fVector) verbose
       unless skipLocalCache
         $   maybe (return ()) liftIO
         $   runReaderT
@@ -729,7 +729,7 @@ uploadFrameworkAndArtifactsToCaches buildTypeConfig s3BucketName mlCacheDir reve
         uploadDownloadEnv
 
     void . runExceptT $ do
-      dwarfUUIDs         <- dwarfUUIDsFrom $ temp_localFrameworkBinaryPath buildTypeConfig platform fVector
+      dwarfUUIDs         <- dwarfUUIDsFrom $ temp_frameworkBinaryPath buildTypeConfig platform fVector
       maybeUUIDsArchives <- liftIO $ forM dwarfUUIDs $ \dwarfUUID ->
         runMaybeT $ do
           dwarfArchive <- exceptToMaybeT
@@ -796,7 +796,7 @@ saveFrameworkAndArtifactsToLocalCache buildTypeConfig lCacheDir reverseRomeMap f
     let readerEnv = (cachePrefix, SkipLocalCacheFlag False, verbose)
 
     void . runExceptT $ do
-      frameworkArchive <- createZipArchive (temp_frameworkDirectory buildTypeConfig platform fVector) verbose
+      frameworkArchive <- createZipArchive (temp_frameworkPath buildTypeConfig platform fVector) verbose
       liftIO $ runReaderT
         (saveFrameworkToLocalCache lCacheDir
                                    frameworkArchive
@@ -807,7 +807,7 @@ saveFrameworkAndArtifactsToLocalCache buildTypeConfig lCacheDir reverseRomeMap f
         readerEnv
 
     void . runExceptT $ do
-      dSYMArchive <- createZipArchive (temp_dSYMdirectory buildTypeConfig platform fVector) verbose
+      dSYMArchive <- createZipArchive (temp_dSYMPath buildTypeConfig platform fVector) verbose
       liftIO $ runReaderT
         (saveDsymToLocalCache lCacheDir
                               dSYMArchive
@@ -818,7 +818,7 @@ saveFrameworkAndArtifactsToLocalCache buildTypeConfig lCacheDir reverseRomeMap f
         readerEnv
 
     void . runExceptT $ do
-      dwarfUUIDs         <- dwarfUUIDsFrom $ temp_localFrameworkBinaryPath buildTypeConfig platform fVector
+      dwarfUUIDs         <- dwarfUUIDsFrom $ temp_frameworkBinaryPath buildTypeConfig platform fVector
       maybeUUIDsArchives <- liftIO $ forM dwarfUUIDs $ \dwarfUUID ->
         runMaybeT $ do
           dwarfArchive <- exceptToMaybeT
@@ -1009,7 +1009,7 @@ downloadFrameworkAndArtifactsFromCaches buildTypeConfig s3BucketName (Just lCach
                                                       platform
                 saveBinaryToLocalCache lCacheDir
                                        frameworkBinary
-                                       (temp_remoteFrameworkUploadPath platform reverseRomeMap fVector cachePrefix)
+                                       (temp_remoteFrameworkPath platform reverseRomeMap fVector cachePrefix)
                                        verboseFrameworkDebugName
                                        verbose
                 deleteFrameworkDirectory buildTypeConfig fVector platform verbose
@@ -1049,7 +1049,7 @@ downloadFrameworkAndArtifactsFromCaches buildTypeConfig s3BucketName (Just lCach
                     saveBinaryToLocalCache
                       lCacheDir
                       symbolmapBinary
-                      (temp_remoteBcSymbolmapUploadPath platform reverseRomeMap fVector cachePrefix dwarfUUID)
+                      (temp_remoteBcSymbolmapPath platform reverseRomeMap fVector cachePrefix dwarfUUID)
                       verboseFrameworkDebugName
                       verbose
                     deleteFile (localBcsymbolmapPathFrom dwarfUUID) verbose
@@ -1083,7 +1083,7 @@ downloadFrameworkAndArtifactsFromCaches buildTypeConfig s3BucketName (Just lCach
                                             platform
                 saveBinaryToLocalCache lCacheDir
                                        dSYMBinary
-                                       (temp_remoteDsymUploadPath platform reverseRomeMap fVector cachePrefix)
+                                       (temp_remoteDsymPath platform reverseRomeMap fVector cachePrefix)
                                        verboseDSYMDebugName
                                        verbose
                 deleteDSYMDirectory buildTypeConfig fVector platform  verbose
@@ -1100,7 +1100,7 @@ downloadFrameworkAndArtifactsFromCaches buildTypeConfig s3BucketName (Just lCach
   verboseSymbolmapDebugName dwarfUUID = verboseFrameworkDebugName <> "." <> bcsymbolmapNameFrom dwarfUUID
   bcsymbolmapZipName d = bcsymbolmapArchiveName d (_frameworkVersion $ _vectorFrameworkVersion fVector)
   verboseSymbolmapZipDebugName dwarfUUID=bcsymbolmapZipName dwarfUUID
-  frameworkExecutablePath = temp_localFrameworkBinaryPath buildTypeConfig platform fVector
+  frameworkExecutablePath = temp_frameworkBinaryPath buildTypeConfig platform fVector
 
 
 downloadFrameworkAndArtifactsFromCaches buildTypeConfig s3BucketName Nothing reverseRomeMap fVector platform
