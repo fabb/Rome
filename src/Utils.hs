@@ -908,11 +908,7 @@ temp_remoteFrameworkPath
   -> CachePrefix
   -> FilePath
 temp_remoteFrameworkPath platform reverseRomeMap fVector (CachePrefix prefix)
-  = prefix </> remoteFrameworkPath
-    platform
-    reverseRomeMap
-    (_framework $ _vectorFrameworkVersion fVector)
-    (_frameworkVersion $ _vectorFrameworkVersion fVector)
+  = prefix </> _remoteFrameworkPath fVector platform reverseRomeMap
 
 temp_remoteDsymPath
   :: TargetPlatform
