@@ -970,7 +970,7 @@ downloadFrameworkAndArtifactsFromCaches
   -> ReaderT UploadDownloadCmdEnv IO ()
 downloadFrameworkAndArtifactsFromCaches buildTypeConfig s3BucketName (Just lCacheDir) reverseRomeMap fVector platform
   = do
-    (env, cachePrefix, SkipLocalCacheFlag skipLocalCache, _, verbose) <-
+    (env, cachePrefix@(CachePrefix prefix), SkipLocalCacheFlag skipLocalCache, _, verbose) <-
       ask
 
     let remoteReaderEnv = (env, cachePrefix, verbose)
@@ -1009,7 +1009,7 @@ downloadFrameworkAndArtifactsFromCaches buildTypeConfig s3BucketName (Just lCach
                                                       platform
                 saveBinaryToLocalCache lCacheDir
                                        frameworkBinary
-                                       (temp_remoteFrameworkPath platform reverseRomeMap fVector cachePrefix)
+                                       (prefix </> _remoteFrameworkPath fVector platform reverseRomeMap)
                                        verboseFrameworkDebugName
                                        verbose
                 deleteFrameworkDirectory buildTypeConfig fVector platform verbose

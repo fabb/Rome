@@ -901,15 +901,6 @@ temp_frameworkNameWithFrameworkExtension :: FrameworkVector -> String
 temp_frameworkNameWithFrameworkExtension fVector =
   appendFrameworkExtensionTo (_framework $ _vectorFrameworkVersion fVector)
 
-temp_remoteFrameworkPath
-  :: TargetPlatform
-  -> InvertedRepositoryMap
-  -> FrameworkVector
-  -> CachePrefix
-  -> FilePath
-temp_remoteFrameworkPath platform reverseRomeMap fVector (CachePrefix prefix)
-  = prefix </> _remoteFrameworkPath fVector platform reverseRomeMap
-
 temp_remoteDsymPath
   :: TargetPlatform
   -> InvertedRepositoryMap

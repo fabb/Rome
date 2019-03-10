@@ -49,12 +49,12 @@ getFrameworkFromS3
        (ReaderT (AWS.Env, CachePrefix, Bool) IO)
        LBS.ByteString
 getFrameworkFromS3 s3BucketName reverseRomeMap fVector platform = do
-  (env, cachePrefix, verbose) <- ask
+  (env, (CachePrefix prefix), verbose) <- ask
   mapExceptT
     (withReaderT (const (env, verbose)))
     (getArtifactFromS3
       s3BucketName
-      (temp_remoteFrameworkPath platform reverseRomeMap fVector cachePrefix)
+      (prefix </> _remoteFrameworkPath fVector platform reverseRomeMap)
       verboseFrameworkDebugName
     )
  where

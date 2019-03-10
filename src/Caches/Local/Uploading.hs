@@ -31,15 +31,11 @@ saveFrameworkToLocalCache
   -> ReaderT (CachePrefix, SkipLocalCacheFlag, Bool) IO ()
 saveFrameworkToLocalCache lCacheDir frameworkArchive reverseRomeMap fVector platform
   = when (vectorSupportsPlatform fVector platform) $ do
-    (cachePrefix, SkipLocalCacheFlag skipLocalCache, verbose) <- ask
+    ((CachePrefix prefix), SkipLocalCacheFlag skipLocalCache, verbose) <- ask
     unless skipLocalCache $ saveBinaryToLocalCache
       lCacheDir
       (Zip.fromArchive frameworkArchive)
-      (temp_remoteFrameworkPath platform
-                                      reverseRomeMap
-                                      fVector
-                                      cachePrefix
-      )
+      (prefix </> _remoteFrameworkPath fVector platform reverseRomeMap)
       verboseDebugName
       verbose
  where
@@ -88,10 +84,10 @@ saveBcsymbolmapToLocalCache lCacheDir dwarfUUID dwarfArchive reverseRomeMap fVec
       lCacheDir
       (Zip.fromArchive dwarfArchive)
       (temp_remoteBcSymbolmapPath platform
-                                        reverseRomeMap
-                                        fVector
-                                        cachePrefix
-                                        dwarfUUID
+                                  reverseRomeMap
+                                  fVector
+                                  cachePrefix
+                                  dwarfUUID
       )
       verboseDebugName
       verbose

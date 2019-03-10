@@ -32,28 +32,29 @@ getFrameworkFromLocalCache
   -> FrameworkVector -- ^ The `FrameworkVector` identifying the Framework
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
   -> ExceptT String m LBS.ByteString
-getFrameworkFromLocalCache lCacheDir cachePrefix reverseRomeMap fVector platform
+getFrameworkFromLocalCache lCacheDir (CachePrefix prefix) reverseRomeMap fVector platform
   = do
     frameworkExistsInLocalCache <-
-      liftIO . doesFileExist $ frameworkLocalCachePath cachePrefix
+      liftIO . doesFileExist $ frameworkLocalCachePath
     if frameworkExistsInLocalCache
       then
         liftIO
         .    runResourceT
         .    C.runConduit
-        $    C.sourceFile (frameworkLocalCachePath cachePrefix)
+        $    C.sourceFile frameworkLocalCachePath
         C..| C.sinkLbs
       else
         throwError
         $  "Error: could not find "
         <> verboseFrameworkDebugName
         <> " in local cache at : "
-        <> frameworkLocalCachePath cachePrefix
+        <> frameworkLocalCachePath
  where
-  --  TODO move to FrameworkVector?
-  frameworkLocalCachePath cPrefix =
+  frameworkLocalCachePath =
     lCacheDir
-      </> temp_remoteFrameworkPath platform reverseRomeMap fVector cPrefix
+      </> prefix
+      </> _remoteFrameworkPath fVector platform reverseRomeMap
+  --  TODO move to FrameworkVector?
   verboseFrameworkDebugName =
     (_frameworkName $ _framework $ _vectorFrameworkVersion fVector)
 
@@ -184,7 +185,7 @@ getAndUnzipBcsymbolmapFromLocalCache
   -> ExceptT String (ReaderT (CachePrefix, Bool) m) ()
 getAndUnzipBcsymbolmapFromLocalCache buildTypeConfig lCacheDir reverseRomeMap fVector platform dwarfUUID
   = when (vectorSupportsPlatform fVector platform) $ do
-    (cachePrefix, verbose) <- ask
+    (cachePrefix@(CachePrefix prefix), verbose) <- ask
     let sayFunc = if verbose then sayLnWithTime else sayLn
     binary <- getBcsymbolmapFromLocalCache lCacheDir
                                            cachePrefix
@@ -196,22 +197,23 @@ getAndUnzipBcsymbolmapFromLocalCache buildTypeConfig lCacheDir reverseRomeMap fV
       $  "Found "
       <> symbolmapName
       <> " in local cache at: "
-      <> frameworkLocalCachePath cachePrefix
+      <> frameworkLocalCachePath prefix
     deleteFile (bcsymbolmapPath dwarfUUID) verbose
     unzipBinary binary symbolmapName (bcsymbolmapZipName dwarfUUID) verbose
  where
+  frameworkLocalCachePath prefix =
+    lCacheDir
+      </> prefix
+      </> _remoteFrameworkPath fVector platform reverseRomeMap
+  bcsymbolmapPath = temp_bcSymbolMapPath buildTypeConfig platform fVector
   -- TODO move to FrameworkVector?
   symbolmapName =
     (_frameworkName $ _framework $ _vectorFrameworkVersion fVector)
       <> "."
       <> bcsymbolmapNameFrom dwarfUUID
-  frameworkLocalCachePath cPrefix =
-    lCacheDir
-      </> temp_remoteFrameworkPath platform reverseRomeMap fVector cPrefix
   bcsymbolmapZipName d = bcsymbolmapArchiveName
     d
     (_frameworkVersion $ _vectorFrameworkVersion fVector)
-  bcsymbolmapPath = temp_bcSymbolMapPath buildTypeConfig platform fVector
 
 
 
@@ -321,7 +323,7 @@ getAndUnzipFrameworkFromLocalCache
   -> ExceptT String (ReaderT (CachePrefix, Bool) m) ()
 getAndUnzipFrameworkFromLocalCache buildTypeConfig lCacheDir reverseRomeMap fVector platform
   = when (vectorSupportsPlatform fVector platform) $ do
-    (cachePrefix, verbose) <- ask
+    (cachePrefix@(CachePrefix prefix), verbose) <- ask
     let sayFunc = if verbose then sayLnWithTime else sayLn
     binary <- getFrameworkFromLocalCache lCacheDir
                                          cachePrefix
@@ -332,17 +334,18 @@ getAndUnzipFrameworkFromLocalCache buildTypeConfig lCacheDir reverseRomeMap fVec
       $  "Found "
       <> verboseFrameworkDebugName
       <> " in local cache at: "
-      <> frameworkLocalCachePath cachePrefix
+      <> frameworkLocalCachePath prefix
     deleteFrameworkDirectory buildTypeConfig fVector platform verbose
     unzipBinary binary verboseFrameworkDebugName frameworkZipName verbose
       <* ifExists
            frameworkExecutablePath
            (makeExecutable frameworkExecutablePath)
  where
-  -- TODO move to FrameworkVector?
-  frameworkLocalCachePath cPrefix =
+  frameworkLocalCachePath prefix =
     lCacheDir
-      </> temp_remoteFrameworkPath platform reverseRomeMap fVector cPrefix
+      </> prefix
+      </> _remoteFrameworkPath fVector platform reverseRomeMap
+  -- TODO move to FrameworkVector?
   verboseFrameworkDebugName =
     (_frameworkName $ _framework $ _vectorFrameworkVersion fVector)
   frameworkZipName = frameworkArchiveName
