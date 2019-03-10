@@ -43,6 +43,7 @@ saveFrameworkToLocalCache lCacheDir frameworkArchive reverseRomeMap fVector plat
       verboseDebugName
       verbose
  where
+  -- TODO move to FrameworkVector?
   verboseDebugName =
     appendFrameworkExtensionTo (_framework $ _vectorFrameworkVersion fVector)
 
@@ -66,6 +67,7 @@ saveDsymToLocalCache lCacheDir dSYMArchive reverseRomeMap fVector platform =
       verboseDebugName
       verbose
  where
+  -- TODO move to FrameworkVector?
   verboseDebugName =
     (_frameworkName $ _framework $ _vectorFrameworkVersion fVector) <> ".dSYM"
 

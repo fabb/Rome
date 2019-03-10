@@ -41,6 +41,7 @@ uploadFrameworkToS3 frameworkArchive s3BucketName reverseRomeMap fVector platfor
       )
       verboseDebugName
  where
+  -- TODO move to FrameworkVector?
   verboseDebugName =
     (_frameworkName $ _framework $ _vectorFrameworkVersion fVector)
 
@@ -63,6 +64,7 @@ uploadDsymToS3 dSYMArchive s3BucketName reverseRomeMap fVector platform =
       (temp_remoteDsymUploadPath platform reverseRomeMap fVector cachePrefix)
       verboseDebugName
  where
+  -- TODO move to FrameworkVector?
   verboseDebugName =
     (_frameworkName $ _framework $ _vectorFrameworkVersion fVector) <> ".dSYM"
 
@@ -92,6 +94,7 @@ uploadBcsymbolmapToS3 dwarfUUID dwarfArchive s3BucketName reverseRomeMap fVector
       )
       verboseDebugName
  where
+  -- TODO move to FrameworkVector?
   verboseDebugName =
     (_frameworkName $ _framework $ _vectorFrameworkVersion fVector)
       <> "."

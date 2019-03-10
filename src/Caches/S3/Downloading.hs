@@ -42,22 +42,29 @@ import           Xcode.DWARF
 getFrameworkFromS3
   :: S3.BucketName -- ^ The cache definition
   -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the Framework in the cache
-  -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework
+  -> FrameworkVector -- ^ The `FrameworkVector` identifying the Framework
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
   -> ExceptT
        String
        (ReaderT (AWS.Env, CachePrefix, Bool) IO)
        LBS.ByteString
-getFrameworkFromS3 s3BucketName reverseRomeMap (FrameworkVersion f@(Framework fwn fwt fwps) version) platform
-  = do
-    (env, CachePrefix prefix, verbose) <- ask
-    mapExceptT
-      (withReaderT (const (env, verbose)))
-      (getArtifactFromS3 s3BucketName (prefix </> remoteFrameworkUploadPath) fwn
+getFrameworkFromS3 s3BucketName reverseRomeMap fVector platform = do
+  (env, cachePrefix, verbose) <- ask
+  mapExceptT
+    (withReaderT (const (env, verbose)))
+    (getArtifactFromS3
+      s3BucketName
+      (temp_remoteFrameworkUploadPath platform
+                                      reverseRomeMap
+                                      fVector
+                                      cachePrefix
       )
+      verboseFrameworkDebugName
+    )
  where
-  remoteFrameworkUploadPath =
-    remoteFrameworkPath platform reverseRomeMap f version
+  -- TODO move to FrameworkVector?
+  verboseFrameworkDebugName =
+    (_frameworkName $ _framework $ _vectorFrameworkVersion fVector)
 
 
 
@@ -65,21 +72,24 @@ getFrameworkFromS3 s3BucketName reverseRomeMap (FrameworkVersion f@(Framework fw
 getDSYMFromS3
   :: S3.BucketName -- ^ The cache definition
   -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the dSYM in the cache
-  -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the dSYM
+  -> FrameworkVector -- ^ The `FrameworkVector` identifying the dSYM
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
   -> ExceptT
        String
        (ReaderT (AWS.Env, CachePrefix, Bool) IO)
        LBS.ByteString
-getDSYMFromS3 s3BucketName reverseRomeMap (FrameworkVersion f@(Framework fwn fwt fwps) version) platform
-  = do
-    (env, CachePrefix prefix, verbose) <- ask
-    let finalRemoteDSYMUploadPath = prefix </> remoteDSYMUploadPath
-    mapExceptT (withReaderT (const (env, verbose)))
-      $ getArtifactFromS3 s3BucketName finalRemoteDSYMUploadPath dSYMName
+getDSYMFromS3 s3BucketName reverseRomeMap fVector platform = do
+  (env, cachePrefix, verbose) <- ask
+  let finalRemoteDSYMUploadPath =
+        temp_remoteDsymUploadPath platform reverseRomeMap fVector cachePrefix
+  mapExceptT (withReaderT (const (env, verbose))) $ getArtifactFromS3
+    s3BucketName
+    finalRemoteDSYMUploadPath
+    verboseDSYMDebugName
  where
-  remoteDSYMUploadPath = remoteDsymPath platform reverseRomeMap f version
-  dSYMName             = fwn <> ".dSYM"
+  -- TODO move to FrameworkVector?
+  verboseDSYMDebugName =
+    (_frameworkName $ _framework $ _vectorFrameworkVersion fVector) <> ".dSYM"
 
 
 
@@ -109,25 +119,32 @@ getVersionFileFromS3 s3BucketName projectNameAndVersion = do
 getBcsymbolmapFromS3
   :: S3.BucketName -- ^ The cache definition
   -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the dSYM in the cache
-  -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the dSYM
+  -> FrameworkVector -- ^ The `FrameworkVector` identifying the dSYM
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
   -> DwarfUUID -- ^ The UUID of the bcsymbolmap
   -> ExceptT
        String
        (ReaderT (AWS.Env, CachePrefix, Bool) IO)
        LBS.ByteString
-getBcsymbolmapFromS3 s3BucketName reverseRomeMap (FrameworkVersion f@(Framework fwn fwt fwps) version) platform dwarfUUID
-  = do
-    (env, CachePrefix prefix, verbose) <- ask
-    let finalRemoteBcsymbolmaploadPath = prefix </> remoteBcSymbolmapUploadPath
+getBcsymbolmapFromS3 s3BucketName reverseRomeMap fVector platform dwarfUUID =
+  do
+    (env, cachePrefix, verbose) <- ask
+    let finalRemoteBcsymbolmaploadPath = temp_remoteBcSymbolmapUploadPath
+          platform
+          reverseRomeMap
+          fVector
+          cachePrefix
+          dwarfUUID
     mapExceptT (withReaderT (const (env, verbose))) $ getArtifactFromS3
       s3BucketName
       finalRemoteBcsymbolmaploadPath
       symbolmapName
  where
-  remoteBcSymbolmapUploadPath =
-    remoteBcsymbolmapPath dwarfUUID platform reverseRomeMap f version
-  symbolmapName = fwn <> "." <> bcsymbolmapNameFrom dwarfUUID
+  -- TODO move to FrameworkVector?
+  symbolmapName =
+    (_frameworkName $ _framework $ _vectorFrameworkVersion fVector)
+      <> "."
+      <> bcsymbolmapNameFrom dwarfUUID
 
 
 
@@ -136,24 +153,33 @@ getAndUnzipFrameworkFromS3
   :: BuildTypeSpecificConfiguration
   -> S3.BucketName -- ^ The cache definition
   -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the Framework in the cache
-  -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework
+  -> FrameworkVector -- ^ The `FrameworkVector` identifying the Framework
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
   -> ExceptT String (ReaderT (AWS.Env, CachePrefix, Bool) IO) ()
-getAndUnzipFrameworkFromS3 buildTypeConfig s3BucketName reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn fwt fwps) version) platform
-  = when (platform `elem` fwps) $ do
+getAndUnzipFrameworkFromS3 buildTypeConfig s3BucketName reverseRomeMap fVector platform
+  = when (vectorSupportsPlatform fVector platform) $ do
     (_, _, verbose) <- ask
     frameworkBinary <- getFrameworkFromS3 s3BucketName
                                           reverseRomeMap
-                                          fVersion
+                                          fVector
                                           platform
-    deleteFrameworkDirectory buildTypeConfig fVersion platform verbose
-    unzipBinary frameworkBinary fwn frameworkZipName verbose
+    deleteFrameworkDirectory buildTypeConfig fVector platform verbose
+    unzipBinary frameworkBinary
+                verboseFrameworkDebugName
+                verboseFrameworkZipName
+                verbose
       <* ifExists
            frameworkExecutablePath
            (makeExecutable frameworkExecutablePath)
  where
-  frameworkZipName        = frameworkArchiveName f version
-  frameworkExecutablePath = frameworkBuildBundleForPlatform buildTypeConfig platform f </> fwn
+  -- TODO move to FrameworkVector?
+  verboseFrameworkDebugName =
+    (_frameworkName $ _framework $ _vectorFrameworkVersion fVector)
+  verboseFrameworkZipName = frameworkArchiveName
+    (_framework $ _vectorFrameworkVersion fVector)
+    (_frameworkVersion $ _vectorFrameworkVersion fVector)
+  frameworkExecutablePath = temp_localFrameworkBinaryPath buildTypeConfig platform fVector
+
 
 
 
@@ -162,16 +188,25 @@ getAndUnzipDSYMFromS3
   :: BuildTypeSpecificConfiguration
   -> S3.BucketName -- ^ The cache definition
   -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the dSYM in the cache
-  -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the dSYM
+  -> FrameworkVector -- ^ The `FrameworkVector` identifying the dSYM
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
   -> ExceptT String (ReaderT (AWS.Env, CachePrefix, Bool) IO) ()
-getAndUnzipDSYMFromS3 buildTypeConfig s3BucketName reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn fwt fwps) version) platform
-  = when (platform `elem` fwps) $ do
+getAndUnzipDSYMFromS3 buildTypeConfig s3BucketName reverseRomeMap fVector platform
+  = when (vectorSupportsPlatform fVector platform) $ do
     (_, _, verbose) <- ask
-    dSYMBinary <- getDSYMFromS3 s3BucketName reverseRomeMap fVersion platform
-    deleteDSYMDirectory buildTypeConfig fVersion platform verbose
-    unzipBinary dSYMBinary fwn dSYMZipName verbose
-  where dSYMZipName = dSYMArchiveName f version
+    dSYMBinary <- getDSYMFromS3 s3BucketName reverseRomeMap fVector platform
+    deleteDSYMDirectory buildTypeConfig fVector platform verbose
+    unzipBinary dSYMBinary
+                verboseFrameworkDebugName
+                verboseDSYMZipDebugName
+                verbose
+ where
+    -- TODO move to FrameworkVector?
+  verboseDSYMZipDebugName = dSYMArchiveName
+    (_framework $ _vectorFrameworkVersion fVector)
+    (_frameworkVersion $ _vectorFrameworkVersion fVector)
+  verboseFrameworkDebugName =
+    (_frameworkName $ _framework $ _vectorFrameworkVersion fVector)
 
 
 
@@ -180,29 +215,38 @@ getAndUnzipBcsymbolmapFromS3
   :: BuildTypeSpecificConfiguration
   -> S3.BucketName -- ^ The cache definition
   -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the dSYM in the cache
-  -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the dSYM
+  -> FrameworkVector -- ^ The `FrameworkVector` identifying the dSYM
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
   -> DwarfUUID -- ^ The UUID of the bcsymbolmap
   -> ExceptT
        String
        (ReaderT (AWS.Env, CachePrefix, Bool) IO)
        ()
-getAndUnzipBcsymbolmapFromS3 buildTypeConfig s3BucketName reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn fwt fwps) version) platform dwarfUUID
-  = when (platform `elem` fwps) $ do
+getAndUnzipBcsymbolmapFromS3 buildTypeConfig s3BucketName reverseRomeMap fVector platform dwarfUUID
+  = when (vectorSupportsPlatform fVector platform) $ do
     (_, _, verbose) <- ask
-    let symbolmapName = fwn <> "." <> bcsymbolmapNameFrom dwarfUUID
-    binary <- getBcsymbolmapFromS3 s3BucketName
-                                   reverseRomeMap
-                                   fVersion
-                                   platform
-                                   dwarfUUID
-    deleteFile (bcsymbolmapPath dwarfUUID) verbose
-    unzipBinary binary symbolmapName (bcsymbolmapZipName dwarfUUID) verbose
+    binary          <- getBcsymbolmapFromS3 s3BucketName
+                                            reverseRomeMap
+                                            fVector
+                                            platform
+                                            dwarfUUID
+    deleteFile
+      (temp_bcSymbolMapPath buildTypeConfig platform fVector dwarfUUID)
+      verbose
+    unzipBinary binary
+                verboseSymbolmapDebugName
+                verboseSymbolmapZipDebugName
+                verbose
  where
-  platformBuildDirectory =
-    artifactsBuildDirectoryForPlatform buildTypeConfig platform f
-  bcsymbolmapZipName d = bcsymbolmapArchiveName d version
-  bcsymbolmapPath d = platformBuildDirectory </> bcsymbolmapNameFrom d
+  -- TODO move to FrameworkVector?
+  verboseSymbolmapDebugName =
+    (_frameworkName $ _framework $ _vectorFrameworkVersion fVector)
+      <> "."
+      <> bcsymbolmapNameFrom dwarfUUID
+  verboseSymbolmapZipDebugName = (bcsymbolmapZipName dwarfUUID)
+  bcsymbolmapZipName d = bcsymbolmapArchiveName
+    d
+    (_frameworkVersion $ _vectorFrameworkVersion fVector)
 
 
 
@@ -211,17 +255,17 @@ getAndUnzipBcsymbolmapsFromS3'
   :: BuildTypeSpecificConfiguration
   -> S3.BucketName -- ^ The cache definition
   -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the dSYM in the cache
-  -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework
+  -> FrameworkVector -- ^ The `FrameworkVector` identifying the Framework
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
   -> ExceptT
        DWARFOperationError
        (ReaderT (AWS.Env, CachePrefix, Bool) IO)
        ()
-getAndUnzipBcsymbolmapsFromS3' buildTypeConfig lCacheDir reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn fwt fwps) _) platform
-  = when (platform `elem` fwps) $ do
+getAndUnzipBcsymbolmapsFromS3' buildTypeConfig lCacheDir reverseRomeMap fVector platform
+  = when (vectorSupportsPlatform fVector platform) $ do
 
-    dwarfUUIDs <- withExceptT (const ErrorGettingDwarfUUIDs)
-      $ dwarfUUIDsFrom (frameworkDirectory </> fwn)
+    dwarfUUIDs <- withExceptT (const ErrorGettingDwarfUUIDs) $ dwarfUUIDsFrom
+      (temp_localFrameworkBinaryPath buildTypeConfig platform fVector)
     eitherDwarfUUIDsOrSucces <- forM
       dwarfUUIDs
       (\dwarfUUID -> lift $ runExceptT
@@ -229,7 +273,7 @@ getAndUnzipBcsymbolmapsFromS3' buildTypeConfig lCacheDir reverseRomeMap fVersion
           buildTypeConfig
           lCacheDir
           reverseRomeMap
-          fVersion
+          fVector
           platform
           dwarfUUID
         )
@@ -238,12 +282,6 @@ getAndUnzipBcsymbolmapsFromS3' buildTypeConfig lCacheDir reverseRomeMap fVersion
     let failedUUIDsAndErrors = lefts eitherDwarfUUIDsOrSucces
     unless (null failedUUIDsAndErrors) $ throwError $ FailedDwarfUUIDs
       failedUUIDsAndErrors
- where
-  frameworkNameWithFrameworkExtension = appendFrameworkExtensionTo f
-  platformBuildDirectory =
-    artifactsBuildDirectoryForPlatform buildTypeConfig platform f
-  frameworkDirectory =
-    platformBuildDirectory </> frameworkNameWithFrameworkExtension
 
 
 

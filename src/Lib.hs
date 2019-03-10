@@ -461,7 +461,7 @@ downloadArtifacts buildTypeConfig mS3BucketName mlCacheDir reverseRepositoryMap 
                                                         s3BucketName
                                                         lCacheDir
                                                         reverseRepositoryMap
-                                                        (map _vectorFrameworkVersion frameworkVectors)
+                                                        frameworkVectors
                                                         platforms
               )
               uploadDownloadEnv
@@ -491,7 +491,7 @@ downloadArtifacts buildTypeConfig mS3BucketName mlCacheDir reverseRepositoryMap 
                       buildTypeConfig
                       lCacheDir
                       reverseRepositoryMap
-                      (map _vectorFrameworkVersion frameworkVectors)
+                      frameworkVectors
                       platforms
               mapM_ (whenLeft sayFunc) errors
             )
@@ -929,14 +929,14 @@ downloadFrameworksAndArtifactsFromCaches
   -> S3.BucketName -- ^ The cache definition.
   -> Maybe FilePath -- ^ Just the path to the local cache or Nothing.
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
-  -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` identifying the Frameworks and dSYMs
+  -> [FrameworkVector] -- ^ A list of `FrameworkVector` identifying the Frameworks and dSYMs
   -> [TargetPlatform] -- ^ A list of target platforms restricting the scope of this action.
   -> ReaderT UploadDownloadCmdEnv IO ()
-downloadFrameworksAndArtifactsFromCaches buildTypeConfig s3BucketName mlCacheDir reverseRomeMap fvs platforms
+downloadFrameworksAndArtifactsFromCaches buildTypeConfig s3BucketName mlCacheDir reverseRomeMap fVectors platforms
   = do
     (_, _, _, ConcurrentlyFlag performConcurrently, _) <- ask
     if performConcurrently
-      then mapConcurrently_ (downloadConcurrently platforms) fvs
+      then mapConcurrently_ (downloadConcurrently platforms) fVectors
       else mapM_ (sequence . download) platforms
  where
   downloadConcurrently platforms f = mapConcurrently
@@ -953,7 +953,7 @@ downloadFrameworksAndArtifactsFromCaches buildTypeConfig s3BucketName mlCacheDir
                                              mlCacheDir
                                              reverseRomeMap
     )
-    fvs
+    fVectors
 
 
 
@@ -965,12 +965,12 @@ downloadFrameworkAndArtifactsFromCaches
   -> S3.BucketName -- ^ The cache definition.
   -> Maybe FilePath -- ^ Just the path to the local cache or Nothing.
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
-  -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework and dSYM
+  -> FrameworkVector -- ^ The `FrameworkVector` identifying the Framework and dSYM
   -> TargetPlatform -- ^ A target platforms restricting the scope of this action.
   -> ReaderT UploadDownloadCmdEnv IO ()
-downloadFrameworkAndArtifactsFromCaches buildTypeConfig s3BucketName (Just lCacheDir) reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn fwt fwps) version) platform
+downloadFrameworkAndArtifactsFromCaches buildTypeConfig s3BucketName (Just lCacheDir) reverseRomeMap fVector platform
   = do
-    (env, cachePrefix@(CachePrefix prefix), SkipLocalCacheFlag skipLocalCache, _, verbose) <-
+    (env, cachePrefix, SkipLocalCacheFlag skipLocalCache, _, verbose) <-
       ask
 
     let remoteReaderEnv = (env, cachePrefix, verbose)
@@ -981,7 +981,7 @@ downloadFrameworkAndArtifactsFromCaches buildTypeConfig s3BucketName (Just lCach
       s3BucketName
       Nothing
       reverseRomeMap
-      fVersion
+      fVector
       platform
 
     unless skipLocalCache $ do
@@ -989,7 +989,7 @@ downloadFrameworkAndArtifactsFromCaches buildTypeConfig s3BucketName (Just lCach
         (runExceptT $ getAndUnzipFrameworkFromLocalCache buildTypeConfig
                                                          lCacheDir
                                                          reverseRomeMap
-                                                         fVersion
+                                                         fVector
                                                          platform
         )
         localReaderEnv
@@ -1005,15 +1005,15 @@ downloadFrameworkAndArtifactsFromCaches buildTypeConfig s3BucketName (Just lCach
               e2 <- runExceptT $ do
                 frameworkBinary <- getFrameworkFromS3 s3BucketName
                                                       reverseRomeMap
-                                                      fVersion
+                                                      fVector
                                                       platform
                 saveBinaryToLocalCache lCacheDir
                                        frameworkBinary
-                                       (prefix </> remoteFrameworkUploadPath)
-                                       fwn
+                                       (temp_remoteFrameworkUploadPath platform reverseRomeMap fVector cachePrefix)
+                                       verboseFrameworkDebugName
                                        verbose
-                deleteFrameworkDirectory buildTypeConfig fVersion platform verbose
-                unzipBinary frameworkBinary fwn frameworkZipName verbose
+                deleteFrameworkDirectory buildTypeConfig fVector platform verbose
+                unzipBinary frameworkBinary verboseFrameworkDebugName verboseFrameworkZipDebugName verbose
                   <* ifExists
                        frameworkExecutablePath
                        (makeExecutable frameworkExecutablePath)
@@ -1026,41 +1026,36 @@ downloadFrameworkAndArtifactsFromCaches buildTypeConfig s3BucketName (Just lCach
         (runExceptT $ getAndUnzipBcsymbolmapsFromLocalCache' buildTypeConfig
                                                              lCacheDir
                                                              reverseRomeMap
-                                                             fVersion
+                                                             fVector
                                                              platform
         )
         localReaderEnv
       case eitherBcsymbolmapsOrErrors of
         Right _ -> return ()
         Left ErrorGettingDwarfUUIDs ->
-          sayFunc $ "Error: Cannot retrieve symbolmaps ids for " <> fwn
+          sayFunc $ "Error: Cannot retrieve symbolmaps ids for " <> verboseFrameworkDebugName
         Left (FailedDwarfUUIDs dwardUUIDsAndErrors) -> do
           mapM_ (sayFunc . snd) dwardUUIDsAndErrors
           forM_ (map fst dwardUUIDsAndErrors)
             $ \dwarfUUID -> liftIO $ runReaderT
                 (do
                   e <- runExceptT $ do
-                    let symbolmapLoggingName =
-                          fwn <> "." <> bcsymbolmapNameFrom dwarfUUID
-                    let bcsymbolmapZipName d = bcsymbolmapArchiveName d version
-                    let localBcsymbolmapPathFrom d =
-                          platformBuildDirectory </> bcsymbolmapNameFrom d
+                    let localBcsymbolmapPathFrom = temp_bcSymbolMapPath buildTypeConfig platform fVector
                     symbolmapBinary <- getBcsymbolmapFromS3 s3BucketName
                                                             reverseRomeMap
-                                                            fVersion
+                                                            fVector
                                                             platform
                                                             dwarfUUID
                     saveBinaryToLocalCache
                       lCacheDir
                       symbolmapBinary
-                      (prefix </> remoteBcSymbolmapUploadPathFromDwarf dwarfUUID
-                      )
-                      fwn
+                      (temp_remoteBcSymbolmapUploadPath platform reverseRomeMap fVector cachePrefix dwarfUUID)
+                      verboseFrameworkDebugName
                       verbose
                     deleteFile (localBcsymbolmapPathFrom dwarfUUID) verbose
                     unzipBinary symbolmapBinary
-                                symbolmapLoggingName
-                                (bcsymbolmapZipName dwarfUUID)
+                                (verboseSymbolmapDebugName dwarfUUID)
+                                (verboseSymbolmapZipDebugName dwarfUUID)
                                 verbose
                   whenLeft sayFunc e
                 )
@@ -1071,7 +1066,7 @@ downloadFrameworkAndArtifactsFromCaches buildTypeConfig s3BucketName (Just lCach
         (runExceptT $ getAndUnzipDSYMFromLocalCache buildTypeConfig
                                                     lCacheDir
                                                     reverseRomeMap
-                                                    fVersion
+                                                    fVector
                                                     platform
         )
         localReaderEnv
@@ -1084,33 +1079,31 @@ downloadFrameworkAndArtifactsFromCaches buildTypeConfig s3BucketName (Just lCach
               e2 <- runExceptT $ do
                 dSYMBinary <- getDSYMFromS3 s3BucketName
                                             reverseRomeMap
-                                            fVersion
+                                            fVector
                                             platform
                 saveBinaryToLocalCache lCacheDir
                                        dSYMBinary
-                                       (prefix </> remotedSYMUploadPath)
-                                       dSYMName
+                                       (temp_remoteDsymUploadPath platform reverseRomeMap fVector cachePrefix)
+                                       verboseDSYMDebugName
                                        verbose
-                deleteDSYMDirectory buildTypeConfig fVersion platform  verbose
-                unzipBinary dSYMBinary dSYMName dSYMZipName verbose
+                deleteDSYMDirectory buildTypeConfig fVector platform  verbose
+                unzipBinary dSYMBinary verboseDSYMDebugName verboseDSYMZipDebugName verbose
               whenLeft sayFunc e2
             )
             remoteReaderEnv
  where
-  frameworkZipName = frameworkArchiveName f version
-  remoteFrameworkUploadPath =
-    remoteFrameworkPath platform reverseRomeMap f version
-  remoteBcSymbolmapUploadPathFromDwarf dwarfUUID =
-    remoteBcsymbolmapPath dwarfUUID platform reverseRomeMap f version
-  dSYMZipName          = dSYMArchiveName f version
-  remotedSYMUploadPath = remoteDsymPath platform reverseRomeMap f version
-  platformBuildDirectory =
-    artifactsBuildDirectoryForPlatform buildTypeConfig platform f
-  dSYMName                = fwn <> ".dSYM"
-  frameworkExecutablePath = frameworkBuildBundleForPlatform buildTypeConfig platform f </> fwn
+  -- TODO integrate these somehow in FrameworkVector?
+  verboseFrameworkDebugName = (_frameworkName $ _framework $ _vectorFrameworkVersion fVector)
+  verboseFrameworkZipDebugName = frameworkArchiveName (_framework $ _vectorFrameworkVersion fVector) (_frameworkVersion $ _vectorFrameworkVersion fVector)
+  verboseDSYMZipDebugName          = dSYMArchiveName (_framework $ _vectorFrameworkVersion fVector) (_frameworkVersion $ _vectorFrameworkVersion fVector)
+  verboseDSYMDebugName = (_frameworkName $ _framework $ _vectorFrameworkVersion fVector) <> ".dSYM"
+  verboseSymbolmapDebugName dwarfUUID = verboseFrameworkDebugName <> "." <> bcsymbolmapNameFrom dwarfUUID
+  bcsymbolmapZipName d = bcsymbolmapArchiveName d (_frameworkVersion $ _vectorFrameworkVersion fVector)
+  verboseSymbolmapZipDebugName dwarfUUID=bcsymbolmapZipName dwarfUUID
+  frameworkExecutablePath = temp_localFrameworkBinaryPath buildTypeConfig platform fVector
 
 
-downloadFrameworkAndArtifactsFromCaches buildTypeConfig s3BucketName Nothing reverseRomeMap fVersion@(FrameworkVersion (Framework fwn fwt fwps) _) platform
+downloadFrameworkAndArtifactsFromCaches buildTypeConfig s3BucketName Nothing reverseRomeMap fVector platform
   = do
     (env, cachePrefix, _, _, verbose) <- ask
 
@@ -1121,7 +1114,7 @@ downloadFrameworkAndArtifactsFromCaches buildTypeConfig s3BucketName Nothing rev
       (runExceptT $ getAndUnzipFrameworkFromS3 buildTypeConfig
                                                s3BucketName
                                                reverseRomeMap
-                                               fVersion
+                                               fVector
                                                platform
       )
       readerEnv
@@ -1129,7 +1122,7 @@ downloadFrameworkAndArtifactsFromCaches buildTypeConfig s3BucketName Nothing rev
 
     eitherDSYMError <- liftIO $ runReaderT
       ( runExceptT
-      $ getAndUnzipDSYMFromS3 buildTypeConfig s3BucketName reverseRomeMap fVersion platform
+      $ getAndUnzipDSYMFromS3 buildTypeConfig s3BucketName reverseRomeMap fVector platform
       )
       readerEnv
     whenLeft sayFunc eitherDSYMError
@@ -1138,15 +1131,18 @@ downloadFrameworkAndArtifactsFromCaches buildTypeConfig s3BucketName Nothing rev
       (runExceptT $ getAndUnzipBcsymbolmapsFromS3' buildTypeConfig
                                                    s3BucketName
                                                    reverseRomeMap
-                                                   fVersion
+                                                   fVector
                                                    platform
       )
       readerEnv
     flip whenLeft eitherSymbolmapsOrErrors $ \e -> case e of
       ErrorGettingDwarfUUIDs ->
-        sayFunc $ "Error: Cannot retrieve symbolmaps ids for " <> fwn
+        sayFunc $ "Error: Cannot retrieve symbolmaps ids for " <> verboseFrameworkDebugName
       (FailedDwarfUUIDs dwardUUIDsAndErrors) ->
         mapM_ (sayFunc . snd) dwardUUIDsAndErrors
+  where
+    -- TODO integrate these somehow in FrameworkVector?
+    verboseFrameworkDebugName = (_frameworkName $ _framework $ _vectorFrameworkVersion fVector)
 
 
 

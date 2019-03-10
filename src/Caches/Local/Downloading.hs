@@ -29,31 +29,33 @@ getFrameworkFromLocalCache
   => FilePath -- ^ The cache definition
   -> CachePrefix -- ^ A prefix for folders at top level in the cache.
   -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the Framework in the cache
-  -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework
+  -> FrameworkVector -- ^ The `FrameworkVector` identifying the Framework
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
   -> ExceptT String m LBS.ByteString
-getFrameworkFromLocalCache lCacheDir (CachePrefix prefix) reverseRomeMap (FrameworkVersion f@(Framework fwn fwt fwps) version) platform
+getFrameworkFromLocalCache lCacheDir cachePrefix reverseRomeMap fVector platform
   = do
     frameworkExistsInLocalCache <-
-      liftIO . doesFileExist $ frameworkLocalCachePath prefix
+      liftIO . doesFileExist $ frameworkLocalCachePath cachePrefix
     if frameworkExistsInLocalCache
       then
         liftIO
         .    runResourceT
         .    C.runConduit
-        $    C.sourceFile (frameworkLocalCachePath prefix)
+        $    C.sourceFile (frameworkLocalCachePath cachePrefix)
         C..| C.sinkLbs
       else
         throwError
         $  "Error: could not find "
-        <> fwn
+        <> verboseFrameworkDebugName
         <> " in local cache at : "
-        <> frameworkLocalCachePath prefix
+        <> frameworkLocalCachePath cachePrefix
  where
+  --  TODO move to FrameworkVector?
   frameworkLocalCachePath cPrefix =
-    lCacheDir </> cPrefix </> remoteFrameworkUploadPath
-  remoteFrameworkUploadPath =
-    remoteFrameworkPath platform reverseRomeMap f version
+    lCacheDir
+      </> temp_remoteFrameworkUploadPath platform reverseRomeMap fVector cPrefix
+  verboseFrameworkDebugName =
+    (_frameworkName $ _framework $ _vectorFrameworkVersion fVector)
 
 
 
@@ -96,13 +98,13 @@ getBcsymbolmapFromLocalCache
   => FilePath -- ^ The cache definition
   -> CachePrefix -- ^ A prefix for folders at top level in the cache.
   -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the dSYM in the cache
-  -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the dSYM
+  -> FrameworkVector -- ^ The `FrameworkVector` identifying the dSYM
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
   -> DwarfUUID -- ^ The UUID of the bcsymbolmap
   -> ExceptT String m LBS.ByteString
-getBcsymbolmapFromLocalCache lCacheDir (CachePrefix prefix) reverseRomeMap (FrameworkVersion f@(Framework fwn fwt fwps) version) platform dwarfUUID
+getBcsymbolmapFromLocalCache lCacheDir cachePrefix reverseRomeMap fVector platform dwarfUUID
   = do
-    let finalBcsymbolmapLocalPath = bcsymbolmapLocalCachePath prefix
+    let finalBcsymbolmapLocalPath = bcsymbolmapLocalCachePath cachePrefix
     bcSymbolmapExistsInLocalCache <-
       liftIO . doesFileExist $ finalBcsymbolmapLocalPath
     if bcSymbolmapExistsInLocalCache
@@ -119,11 +121,18 @@ getBcsymbolmapFromLocalCache lCacheDir (CachePrefix prefix) reverseRomeMap (Fram
         <> " in local cache at : "
         <> finalBcsymbolmapLocalPath
  where
-  remoteBcsymbolmapUploadPath =
-    remoteBcsymbolmapPath dwarfUUID platform reverseRomeMap f version
   bcsymbolmapLocalCachePath cPrefix =
-    lCacheDir </> cPrefix </> remoteBcsymbolmapUploadPath
-  bcsymbolmapName = fwn <> "." <> bcsymbolmapNameFrom dwarfUUID
+    lCacheDir
+      </> temp_remoteBcSymbolmapUploadPath platform
+                                           reverseRomeMap
+                                           fVector
+                                           cPrefix
+                                           dwarfUUID
+  --  TODO move to FrameworkVector?
+  bcsymbolmapName =
+    (_frameworkName $ _framework $ _vectorFrameworkVersion fVector)
+      <> "."
+      <> bcsymbolmapNameFrom dwarfUUID
 
 
 
@@ -133,12 +142,12 @@ getDSYMFromLocalCache
   => FilePath -- ^ The cache definition
   -> CachePrefix -- ^ A prefix for folders at top level in the cache.
   -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the dSYM in the cache
-  -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the dSYM
+  -> FrameworkVector -- ^ The `FrameworkVector` identifying the dSYM
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
   -> ExceptT String m LBS.ByteString
-getDSYMFromLocalCache lCacheDir (CachePrefix prefix) reverseRomeMap (FrameworkVersion f@(Framework fwn fwt fwps) version) platform
-  = do
-    let finalDSYMLocalPath = dSYMLocalCachePath prefix
+getDSYMFromLocalCache lCacheDir cachePrefix reverseRomeMap fVector platform =
+  do
+    let finalDSYMLocalPath = dSYMLocalCachePath
     dSYMExistsInLocalCache <- liftIO . doesFileExist $ finalDSYMLocalPath
     if dSYMExistsInLocalCache
       then
@@ -154,9 +163,12 @@ getDSYMFromLocalCache lCacheDir (CachePrefix prefix) reverseRomeMap (FrameworkVe
         <> " in local cache at : "
         <> finalDSYMLocalPath
  where
-  dSYMLocalCachePath cPrefix = lCacheDir </> cPrefix </> remotedSYMUploadPath
-  remotedSYMUploadPath = remoteDsymPath platform reverseRomeMap f version
-  dSYMName             = fwn <> ".dSYM"
+  -- TODO move to FrameworkVector?
+  dSYMLocalCachePath =
+    lCacheDir
+      </> temp_remoteDsymUploadPath platform reverseRomeMap fVector cachePrefix
+  dSYMName =
+    (_frameworkName $ _framework $ _vectorFrameworkVersion fVector) <> ".dSYM"
 
 
 
@@ -166,37 +178,40 @@ getAndUnzipBcsymbolmapFromLocalCache
   => BuildTypeSpecificConfiguration
   -> FilePath -- ^ The cache definition
   -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the dSYM in the cache
-  -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework
+  -> FrameworkVector -- ^ The `FrameworkVector` identifying the Framework
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
   -> DwarfUUID
   -> ExceptT String (ReaderT (CachePrefix, Bool) m) ()
-getAndUnzipBcsymbolmapFromLocalCache buildTypeConfig lCacheDir reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn fwt fwps) version) platform dwarfUUID
-  = when (platform `elem` fwps) $ do
-    (cachePrefix@(CachePrefix prefix), verbose) <- ask
-    let sayFunc       = if verbose then sayLnWithTime else sayLn
-    let symbolmapName = fwn <> "." <> bcsymbolmapNameFrom dwarfUUID
+getAndUnzipBcsymbolmapFromLocalCache buildTypeConfig lCacheDir reverseRomeMap fVector platform dwarfUUID
+  = when (vectorSupportsPlatform fVector platform) $ do
+    (cachePrefix, verbose) <- ask
+    let sayFunc = if verbose then sayLnWithTime else sayLn
     binary <- getBcsymbolmapFromLocalCache lCacheDir
                                            cachePrefix
                                            reverseRomeMap
-                                           fVersion
+                                           fVector
                                            platform
                                            dwarfUUID
     sayFunc
       $  "Found "
       <> symbolmapName
       <> " in local cache at: "
-      <> frameworkLocalCachePath prefix
+      <> frameworkLocalCachePath cachePrefix
     deleteFile (bcsymbolmapPath dwarfUUID) verbose
     unzipBinary binary symbolmapName (bcsymbolmapZipName dwarfUUID) verbose
  where
+  -- TODO move to FrameworkVector?
+  symbolmapName =
+    (_frameworkName $ _framework $ _vectorFrameworkVersion fVector)
+      <> "."
+      <> bcsymbolmapNameFrom dwarfUUID
   frameworkLocalCachePath cPrefix =
-    lCacheDir </> cPrefix </> remoteFrameworkUploadPath
-  remoteFrameworkUploadPath =
-    remoteFrameworkPath platform reverseRomeMap f version
-  bcsymbolmapZipName d = bcsymbolmapArchiveName d version
-  bcsymbolmapPath d = platformBuildDirectory </> bcsymbolmapNameFrom d
-  platformBuildDirectory =
-    artifactsBuildDirectoryForPlatform buildTypeConfig platform f
+    lCacheDir
+      </> temp_remoteFrameworkUploadPath platform reverseRomeMap fVector cPrefix
+  bcsymbolmapZipName d = bcsymbolmapArchiveName
+    d
+    (_frameworkVersion $ _vectorFrameworkVersion fVector)
+  bcsymbolmapPath = temp_bcSymbolMapPath buildTypeConfig platform fVector
 
 
 
@@ -206,32 +221,27 @@ getAndUnzipBcsymbolmapsFromLocalCache
   => BuildTypeSpecificConfiguration
   -> FilePath -- ^ The cache definition
   -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the dSYM in the cache
-  -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework
+  -> FrameworkVector -- ^ The `FrameworkVector` identifying the Framework
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
   -> ExceptT String (ReaderT (CachePrefix, Bool) m) ()
-getAndUnzipBcsymbolmapsFromLocalCache buildTypeConfig lCacheDir reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn fwt fwps) _) platform
-  = when (platform `elem` fwps) $ do
+getAndUnzipBcsymbolmapsFromLocalCache buildTypeConfig lCacheDir reverseRomeMap fVector platform
+  = when (vectorSupportsPlatform fVector platform) $ do
     (_, verbose) <- ask
     let sayFunc = if verbose then sayLnWithTime else sayLn
 
-    dwarfUUIDs <- dwarfUUIDsFrom (frameworkDirectory </> fwn)
+    dwarfUUIDs <- dwarfUUIDsFrom
+      $ temp_localFrameworkBinaryPath buildTypeConfig platform fVector
     mapM_
       (\dwarfUUID ->
         getAndUnzipBcsymbolmapFromLocalCache buildTypeConfig
                                              lCacheDir
                                              reverseRomeMap
-                                             fVersion
+                                             fVector
                                              platform
                                              dwarfUUID
           `catchError` sayFunc
       )
       dwarfUUIDs
- where
-  frameworkNameWithFrameworkExtension = appendFrameworkExtensionTo f
-  platformBuildDirectory =
-    artifactsBuildDirectoryForPlatform buildTypeConfig platform f
-  frameworkDirectory =
-    platformBuildDirectory </> frameworkNameWithFrameworkExtension
 
 
 
@@ -241,16 +251,16 @@ getAndUnzipBcsymbolmapsFromLocalCache'
   => BuildTypeSpecificConfiguration
   -> FilePath -- ^ The cache definition
   -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the dSYM in the cache
-  -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework
+  -> FrameworkVector -- ^ The `FrameworkVector` identifying the Framework
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
   -> ExceptT
        DWARFOperationError
        (ReaderT (CachePrefix, Bool) m)
        ()
-getAndUnzipBcsymbolmapsFromLocalCache' buildTypeConfig lCacheDir reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn fwt fwps) _) platform
-  = when (platform `elem` fwps) $ do
-    dwarfUUIDs <- withExceptT (const ErrorGettingDwarfUUIDs)
-      $ dwarfUUIDsFrom (frameworkDirectory </> fwn)
+getAndUnzipBcsymbolmapsFromLocalCache' buildTypeConfig lCacheDir reverseRomeMap fVector platform
+  = when (vectorSupportsPlatform fVector platform) $ do
+    dwarfUUIDs <- withExceptT (const ErrorGettingDwarfUUIDs) $ dwarfUUIDsFrom
+      (temp_localFrameworkBinaryPath buildTypeConfig platform fVector)
     eitherDwarfUUIDsOrSucces <- forM
       dwarfUUIDs
       (\dwarfUUID -> lift $ runExceptT
@@ -258,7 +268,7 @@ getAndUnzipBcsymbolmapsFromLocalCache' buildTypeConfig lCacheDir reverseRomeMap 
         $ getAndUnzipBcsymbolmapFromLocalCache buildTypeConfig
                                                lCacheDir
                                                reverseRomeMap
-                                               fVersion
+                                               fVector
                                                platform
                                                dwarfUUID
         )
@@ -267,13 +277,6 @@ getAndUnzipBcsymbolmapsFromLocalCache' buildTypeConfig lCacheDir reverseRomeMap 
     let failedUUIDsAndErrors = lefts eitherDwarfUUIDsOrSucces
     unless (null failedUUIDsAndErrors) $ throwError $ FailedDwarfUUIDs
       failedUUIDsAndErrors
- where
-  frameworkNameWithFrameworkExtension = appendFrameworkExtensionTo f
-  platformBuildDirectory =
-    artifactsBuildDirectoryForPlatform buildTypeConfig platform f
-  frameworkDirectory =
-    platformBuildDirectory </> frameworkNameWithFrameworkExtension
-
 
 
 
@@ -283,10 +286,10 @@ getAndUnzipFrameworksAndArtifactsFromLocalCache
   => BuildTypeSpecificConfiguration
   -> FilePath -- ^ The cache definition
   -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the Framework in the cache
-  -> [FrameworkVersion] -- ^ The a list of `FrameworkVersion` identifying the Frameworks and dSYMs
+  -> [FrameworkVector] -- ^ The a list of `FrameworkVector` identifying the Frameworks and dSYMs
   -> [TargetPlatform] -- ^ A list of `TargetPlatform`s to limit the operation to
   -> [ExceptT String (ReaderT (CachePrefix, Bool) m) ()]
-getAndUnzipFrameworksAndArtifactsFromLocalCache buildTypeConfig lCacheDir reverseRomeMap fvs platforms
+getAndUnzipFrameworksAndArtifactsFromLocalCache buildTypeConfig lCacheDir reverseRomeMap fVectors platforms
   = concatMap getAndUnzipFramework platforms
     <> concatMap getAndUnzipBcsymbolmaps platforms
     <> concatMap getAndUnzipDSYM         platforms
@@ -294,16 +297,16 @@ getAndUnzipFrameworksAndArtifactsFromLocalCache buildTypeConfig lCacheDir revers
   getAndUnzipFramework = mapM
     (getAndUnzipFrameworkFromLocalCache buildTypeConfig lCacheDir reverseRomeMap
     )
-    fvs
+    fVectors
   getAndUnzipBcsymbolmaps = mapM
     (getAndUnzipBcsymbolmapsFromLocalCache buildTypeConfig
                                            lCacheDir
                                            reverseRomeMap
     )
-    fvs
+    fVectors
   getAndUnzipDSYM = mapM
     (getAndUnzipDSYMFromLocalCache buildTypeConfig lCacheDir reverseRomeMap)
-    fvs
+    fVectors
 
 
 
@@ -313,33 +316,40 @@ getAndUnzipFrameworkFromLocalCache
   => BuildTypeSpecificConfiguration
   -> FilePath -- ^ The cache definition
   -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the Framework in the cache
-  -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework
+  -> FrameworkVector -- ^ The `FrameworkVector` identifying the Framework
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
   -> ExceptT String (ReaderT (CachePrefix, Bool) m) ()
-getAndUnzipFrameworkFromLocalCache buildTypeConfig lCacheDir reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn fwt fwps) version) platform
-  = when (platform `elem` fwps) $ do
-    (cachePrefix@(CachePrefix prefix), verbose) <- ask
+getAndUnzipFrameworkFromLocalCache buildTypeConfig lCacheDir reverseRomeMap fVector platform
+  = when (vectorSupportsPlatform fVector platform) $ do
+    (cachePrefix, verbose) <- ask
     let sayFunc = if verbose then sayLnWithTime else sayLn
     binary <- getFrameworkFromLocalCache lCacheDir
                                          cachePrefix
                                          reverseRomeMap
-                                         fVersion
+                                         fVector
                                          platform
     sayFunc
       $  "Found "
-      <> fwn
+      <> verboseFrameworkDebugName
       <> " in local cache at: "
-      <> frameworkLocalCachePath prefix
-    deleteFrameworkDirectory buildTypeConfig fVersion platform verbose
-    unzipBinary binary fwn frameworkZipName verbose
-      <* ifExists frameworkExecutablePath (makeExecutable frameworkExecutablePath)
+      <> frameworkLocalCachePath cachePrefix
+    deleteFrameworkDirectory buildTypeConfig fVector platform verbose
+    unzipBinary binary verboseFrameworkDebugName frameworkZipName verbose
+      <* ifExists
+           frameworkExecutablePath
+           (makeExecutable frameworkExecutablePath)
  where
+  -- TODO move to FrameworkVector?
   frameworkLocalCachePath cPrefix =
-    lCacheDir </> cPrefix </> remoteFrameworkUploadPath
-  remoteFrameworkUploadPath =
-    remoteFrameworkPath platform reverseRomeMap f version
-  frameworkZipName = frameworkArchiveName f version
-  frameworkExecutablePath = frameworkBuildBundleForPlatform buildTypeConfig platform f </> fwn
+    lCacheDir
+      </> temp_remoteFrameworkUploadPath platform reverseRomeMap fVector cPrefix
+  verboseFrameworkDebugName =
+    (_frameworkName $ _framework $ _vectorFrameworkVersion fVector)
+  frameworkZipName = frameworkArchiveName
+    (_framework $ _vectorFrameworkVersion fVector)
+    (_frameworkVersion $ _vectorFrameworkVersion fVector)
+  frameworkExecutablePath =
+    temp_localFrameworkBinaryPath buildTypeConfig platform fVector
 
 
 
@@ -349,31 +359,41 @@ getAndUnzipDSYMFromLocalCache
   => BuildTypeSpecificConfiguration
   -> FilePath -- ^ The cache definition
   -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the dSYM in the cache
-  -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework
+  -> FrameworkVector -- ^ The `FrameworkVector` identifying the Framework
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
   -> ExceptT String (ReaderT (CachePrefix, Bool) m) ()
-getAndUnzipDSYMFromLocalCache buildTypeConfig lCacheDir reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn fwt fwps) version) platform
-  = when (platform `elem` fwps) $ do
+getAndUnzipDSYMFromLocalCache buildTypeConfig lCacheDir reverseRomeMap fVector platform
+  = when (vectorSupportsPlatform fVector platform) $ do
     (cachePrefix@(CachePrefix prefix), verbose) <- ask
     let finalDSYMLocalPath = dSYMLocalCachePath prefix
     let sayFunc            = if verbose then sayLnWithTime else sayLn
     binary <- getDSYMFromLocalCache lCacheDir
                                     cachePrefix
                                     reverseRomeMap
-                                    fVersion
+                                    fVector
                                     platform
     sayFunc
       $  "Found "
       <> dSYMName
       <> " in local cache at: "
       <> finalDSYMLocalPath
-    deleteDSYMDirectory buildTypeConfig fVersion platform verbose
-    unzipBinary binary fwn dSYMZipName verbose
+    deleteDSYMDirectory buildTypeConfig fVector platform verbose
+    unzipBinary binary verboseFrameworkDebugName dSYMZipName verbose
  where
+  -- TODO move to FrameworkVector?
   dSYMLocalCachePath cPrefix = lCacheDir </> cPrefix </> remotedSYMUploadPath
-  remotedSYMUploadPath = remoteDsymPath platform reverseRomeMap f version
-  dSYMZipName          = dSYMArchiveName f version
-  dSYMName             = fwn <> ".dSYM"
+  remotedSYMUploadPath = remoteDsymPath
+    platform
+    reverseRomeMap
+    (_framework $ _vectorFrameworkVersion fVector)
+    (_frameworkVersion $ _vectorFrameworkVersion fVector)
+  dSYMZipName = dSYMArchiveName
+    (_framework $ _vectorFrameworkVersion fVector)
+    (_frameworkVersion $ _vectorFrameworkVersion fVector)
+  dSYMName =
+    (_frameworkName $ _framework $ _vectorFrameworkVersion fVector) <> ".dSYM"
+  verboseFrameworkDebugName =
+    (_frameworkName $ _framework $ _vectorFrameworkVersion fVector)
 
 
 

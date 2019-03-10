@@ -731,42 +731,29 @@ deleteFile path verbose = do
 
 
 
--- | Deletes a Framework from the Carthage Build folder
+-- | Deletes a Framework from the Build folder
 deleteFrameworkDirectory
   :: MonadIO m
   => BuildTypeSpecificConfiguration
-  -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework to delete
+  -> FrameworkVector -- ^ The `FrameworkVector` identifying the Framework to delete
   -> TargetPlatform -- ^ The `TargetPlatform` to restrict this operation to
   -> Bool -- ^ A flag controlling verbosity
   -> m ()
-deleteFrameworkDirectory buildTypeConfig (FrameworkVersion f _) platform =
-  deleteDirectory frameworkDirectory
- where
-  frameworkNameWithFrameworkExtension = appendFrameworkExtensionTo f
-  platformBuildDirectory =
-    artifactsBuildDirectoryForPlatform buildTypeConfig platform f
-  frameworkDirectory =
-    platformBuildDirectory </> frameworkNameWithFrameworkExtension
+deleteFrameworkDirectory buildTypeConfig fVector platform =
+  deleteDirectory $ temp_frameworkDirectory buildTypeConfig platform fVector
 
 
 
--- | Deletes a dSYM from the Carthage Build folder
+-- | Deletes a dSYM from the Build folder
 deleteDSYMDirectory
   :: MonadIO m
   => BuildTypeSpecificConfiguration
-  -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the dSYM to delete
+  -> FrameworkVector -- ^ The `FrameworkVector` identifying the dSYM to delete
   -> TargetPlatform -- ^ The `TargetPlatform` to restrict this operation to
   -> Bool -- ^ A flag controlling verbosity
   -> m ()
-deleteDSYMDirectory buildTypeConfig (FrameworkVersion f _) platform  =
-  deleteDirectory dSYMDirectory
- where
-  frameworkNameWithFrameworkExtension = appendFrameworkExtensionTo f
-  platformBuildDirectory =
-    artifactsBuildDirectoryForPlatform buildTypeConfig platform f
-  -- FIXME for PodBuilder, dSYMs are NOT contained in platformBuildDirectory, but rather a level above
-  dSYMDirectory =
-    platformBuildDirectory </> frameworkNameWithFrameworkExtension <> ".dSYM"
+deleteDSYMDirectory buildTypeConfig fVector platform =
+  deleteDirectory $ temp_dSYMdirectory buildTypeConfig platform fVector
 
 
 
@@ -860,6 +847,7 @@ fromFile f action = do
 
 -- Temporary FrameworkVector Helper Functions
 -- TODO These should be moved to field functions on FrameworkVector, so they can be different per build type, but not need to get the build type as parameter
+-- TODO remove "Upload" from function names
 
 temp_frameworkDirectory
   :: BuildTypeSpecificConfiguration
