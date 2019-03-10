@@ -75,9 +75,9 @@ getDSYMFromS3
        (ReaderT (AWS.Env, CachePrefix, Bool) IO)
        LBS.ByteString
 getDSYMFromS3 s3BucketName reverseRomeMap fVector platform = do
-  (env, cachePrefix, verbose) <- ask
+  (env, (CachePrefix prefix), verbose) <- ask
   let finalRemoteDSYMUploadPath =
-        temp_remoteDsymPath platform reverseRomeMap fVector cachePrefix
+        prefix </> temp_remoteDsymPath platform reverseRomeMap fVector
   mapExceptT (withReaderT (const (env, verbose))) $ getArtifactFromS3
     s3BucketName
     finalRemoteDSYMUploadPath
@@ -124,13 +124,13 @@ getBcsymbolmapFromS3
        LBS.ByteString
 getBcsymbolmapFromS3 s3BucketName reverseRomeMap fVector platform dwarfUUID =
   do
-    (env, cachePrefix, verbose) <- ask
-    let finalRemoteBcsymbolmaploadPath = temp_remoteBcSymbolmapPath
-          platform
-          reverseRomeMap
-          fVector
-          cachePrefix
-          dwarfUUID
+    (env, (CachePrefix prefix), verbose) <- ask
+    let finalRemoteBcsymbolmaploadPath =
+          prefix
+            </> temp_remoteBcSymbolmapPath platform
+                                           reverseRomeMap
+                                           fVector
+                                           dwarfUUID
     mapExceptT (withReaderT (const (env, verbose))) $ getArtifactFromS3
       s3BucketName
       finalRemoteBcsymbolmaploadPath

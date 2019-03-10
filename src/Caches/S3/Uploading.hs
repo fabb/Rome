@@ -53,11 +53,11 @@ uploadDsymToS3
   -> ReaderT UploadDownloadEnv IO ()
 uploadDsymToS3 dSYMArchive s3BucketName reverseRomeMap fVector platform =
   when (vectorSupportsPlatform fVector platform) $ do
-    (env, cachePrefix, verbose) <- ask
+    (env, (CachePrefix prefix), verbose) <- ask
     withReaderT (const (env, verbose)) $ uploadBinary
       s3BucketName
       (Zip.fromArchive dSYMArchive)
-      (temp_remoteDsymPath platform reverseRomeMap fVector cachePrefix)
+      (prefix </> temp_remoteDsymPath platform reverseRomeMap fVector)
       verboseDebugName
  where
   -- TODO move to FrameworkVector?
@@ -78,15 +78,12 @@ uploadBcsymbolmapToS3
   -> ReaderT UploadDownloadEnv IO ()
 uploadBcsymbolmapToS3 dwarfUUID dwarfArchive s3BucketName reverseRomeMap fVector platform
   = when (vectorSupportsPlatform fVector platform) $ do
-    (env, cachePrefix, verbose) <- ask
+    (env, (CachePrefix prefix), verbose) <- ask
     withReaderT (const (env, verbose)) $ uploadBinary
       s3BucketName
       (Zip.fromArchive dwarfArchive)
-      (temp_remoteBcSymbolmapPath platform
-                                  reverseRomeMap
-                                  fVector
-                                  cachePrefix
-                                  dwarfUUID
+      (   prefix
+      </> temp_remoteBcSymbolmapPath platform reverseRomeMap fVector dwarfUUID
       )
       verboseDebugName
  where

@@ -55,11 +55,11 @@ saveDsymToLocalCache
   -> ReaderT (CachePrefix, SkipLocalCacheFlag, Bool) IO ()
 saveDsymToLocalCache lCacheDir dSYMArchive reverseRomeMap fVector platform =
   when (vectorSupportsPlatform fVector platform) $ do
-    (cachePrefix, SkipLocalCacheFlag skipLocalCache, verbose) <- ask
+    ((CachePrefix prefix), SkipLocalCacheFlag skipLocalCache, verbose) <- ask
     unless skipLocalCache $ saveBinaryToLocalCache
       lCacheDir
       (Zip.fromArchive dSYMArchive)
-      (temp_remoteDsymPath platform reverseRomeMap fVector cachePrefix)
+      (prefix </> temp_remoteDsymPath platform reverseRomeMap fVector)
       verboseDebugName
       verbose
  where
@@ -79,15 +79,12 @@ saveBcsymbolmapToLocalCache
   -> ReaderT (CachePrefix, SkipLocalCacheFlag, Bool) IO ()
 saveBcsymbolmapToLocalCache lCacheDir dwarfUUID dwarfArchive reverseRomeMap fVector platform
   = when (vectorSupportsPlatform fVector platform) $ do
-    (cachePrefix, SkipLocalCacheFlag skipLocalCache, verbose) <- ask
+    ((CachePrefix prefix), SkipLocalCacheFlag skipLocalCache, verbose) <- ask
     unless skipLocalCache $ saveBinaryToLocalCache
       lCacheDir
       (Zip.fromArchive dwarfArchive)
-      (temp_remoteBcSymbolmapPath platform
-                                  reverseRomeMap
-                                  fVector
-                                  cachePrefix
-                                  dwarfUUID
+      (   prefix
+      </> temp_remoteBcSymbolmapPath platform reverseRomeMap fVector dwarfUUID
       )
       verboseDebugName
       verbose

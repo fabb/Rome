@@ -103,9 +103,9 @@ getBcsymbolmapFromLocalCache
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
   -> DwarfUUID -- ^ The UUID of the bcsymbolmap
   -> ExceptT String m LBS.ByteString
-getBcsymbolmapFromLocalCache lCacheDir cachePrefix reverseRomeMap fVector platform dwarfUUID
+getBcsymbolmapFromLocalCache lCacheDir (CachePrefix prefix) reverseRomeMap fVector platform dwarfUUID
   = do
-    let finalBcsymbolmapLocalPath = bcsymbolmapLocalCachePath cachePrefix
+    let finalBcsymbolmapLocalPath = bcsymbolmapLocalCachePath prefix
     bcSymbolmapExistsInLocalCache <-
       liftIO . doesFileExist $ finalBcsymbolmapLocalPath
     if bcSymbolmapExistsInLocalCache
@@ -124,10 +124,9 @@ getBcsymbolmapFromLocalCache lCacheDir cachePrefix reverseRomeMap fVector platfo
  where
   bcsymbolmapLocalCachePath cPrefix =
     lCacheDir
-      </> temp_remoteBcSymbolmapPath platform
+      </> cPrefix </> temp_remoteBcSymbolmapPath platform
                                      reverseRomeMap
                                      fVector
-                                     cPrefix
                                      dwarfUUID
   --  TODO move to FrameworkVector?
   bcsymbolmapName =
@@ -146,7 +145,7 @@ getDSYMFromLocalCache
   -> FrameworkVector -- ^ The `FrameworkVector` identifying the dSYM
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
   -> ExceptT String m LBS.ByteString
-getDSYMFromLocalCache lCacheDir cachePrefix reverseRomeMap fVector platform =
+getDSYMFromLocalCache lCacheDir (CachePrefix prefix) reverseRomeMap fVector platform =
   do
     let finalDSYMLocalPath = dSYMLocalCachePath
     dSYMExistsInLocalCache <- liftIO . doesFileExist $ finalDSYMLocalPath
@@ -167,7 +166,7 @@ getDSYMFromLocalCache lCacheDir cachePrefix reverseRomeMap fVector platform =
   -- TODO move to FrameworkVector?
   dSYMLocalCachePath =
     lCacheDir
-      </> temp_remoteDsymPath platform reverseRomeMap fVector cachePrefix
+      </> prefix </> temp_remoteDsymPath platform reverseRomeMap fVector
   dSYMName =
     (_frameworkName $ _framework $ _vectorFrameworkVersion fVector) <> ".dSYM"
 

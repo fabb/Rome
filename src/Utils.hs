@@ -905,9 +905,8 @@ temp_remoteDsymPath
   :: TargetPlatform
   -> InvertedRepositoryMap
   -> FrameworkVector
-  -> CachePrefix
   -> FilePath
-temp_remoteDsymPath platform reverseRomeMap fVector (CachePrefix prefix)
+temp_remoteDsymPath platform reverseRomeMap fVector
   = remoteDsymPath platform
                    reverseRomeMap
                    (_framework $ _vectorFrameworkVersion fVector)
@@ -917,11 +916,10 @@ temp_remoteBcSymbolmapPath
   :: TargetPlatform
   -> InvertedRepositoryMap
   -> FrameworkVector
-  -> CachePrefix
   -> DwarfUUID
   -> FilePath
-temp_remoteBcSymbolmapPath platform reverseRomeMap fVector (CachePrefix prefix) dwarfUUID
-  = prefix </> remoteBcsymbolmapPath
+temp_remoteBcSymbolmapPath platform reverseRomeMap fVector dwarfUUID
+  = remoteBcsymbolmapPath
     dwarfUUID
     platform
     reverseRomeMap

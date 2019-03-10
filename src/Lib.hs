@@ -1049,7 +1049,7 @@ downloadFrameworkAndArtifactsFromCaches buildTypeConfig s3BucketName (Just lCach
                     saveBinaryToLocalCache
                       lCacheDir
                       symbolmapBinary
-                      (temp_remoteBcSymbolmapPath platform reverseRomeMap fVector cachePrefix dwarfUUID)
+                      (prefix </> temp_remoteBcSymbolmapPath platform reverseRomeMap fVector dwarfUUID)
                       verboseFrameworkDebugName
                       verbose
                     deleteFile (localBcsymbolmapPathFrom dwarfUUID) verbose
@@ -1083,7 +1083,7 @@ downloadFrameworkAndArtifactsFromCaches buildTypeConfig s3BucketName (Just lCach
                                             platform
                 saveBinaryToLocalCache lCacheDir
                                        dSYMBinary
-                                       (temp_remoteDsymPath platform reverseRomeMap fVector cachePrefix)
+                                       (prefix </> temp_remoteDsymPath platform reverseRomeMap fVector)
                                        verboseDSYMDebugName
                                        verbose
                 deleteDSYMDirectory buildTypeConfig fVector platform  verbose
