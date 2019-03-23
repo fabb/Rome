@@ -31,7 +31,9 @@ import qualified Data.Text                     as T
 import qualified Network.AWS                   as AWS
 import qualified Network.AWS.S3                as S3
 import           System.Directory               ( doesFileExist )
-import           System.FilePath                ( (</>) )
+import           System.FilePath                ( (</>)
+                                                , takeFileName
+                                                )
 import           Types                   hiding ( version )
 import           Utils
 import           Xcode.DWARF
@@ -93,22 +95,23 @@ getDSYMFromS3 s3BucketName reverseRomeMap fVector platform = do
 -- | Carthage only, not necessary for PodBuilder
 getVersionFileFromS3
   :: S3.BucketName
-  -> ProjectNameAndVersion
+  -> InvertedRepositoryMap
+  -> FrameworkVector
   -> ExceptT
        String
        (ReaderT (AWS.Env, CachePrefix, Bool) IO)
        LBS.ByteString
-getVersionFileFromS3 s3BucketName projectNameAndVersion = do
-  (env, CachePrefix prefix, verbose) <- ask
-  let finalVersionFileRemotePath = prefix </> versionFileRemotePath
-  mapExceptT (withReaderT (const (env, verbose))) $ getArtifactFromS3
-    s3BucketName
-    finalVersionFileRemotePath
-    versionFileName
- where
-  versionFileName = versionFileNameForProjectName $ fst projectNameAndVersion
-  versionFileRemotePath = remoteVersionFilePath projectNameAndVersion
-
+getVersionFileFromS3 s3BucketName reverseRomeMap fVector = do
+  case temp_versionFileRemotePath reverseRomeMap fVector of
+    Just versionFileRemotePath -> do
+      (env, CachePrefix prefix, verbose) <- ask
+      let finalVersionFileRemotePath = prefix </> versionFileRemotePath
+      mapExceptT (withReaderT (const (env, verbose))) $ getArtifactFromS3
+        s3BucketName
+        finalVersionFileRemotePath
+        verboseDebugFileName
+      where verboseDebugFileName = takeFileName $ versionFileRemotePath
+    _ -> pure mempty
 
 
 -- | Retrieves a bcsymbolmap from an S3 Cache

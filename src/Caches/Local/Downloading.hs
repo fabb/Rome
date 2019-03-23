@@ -66,30 +66,34 @@ getVersionFileFromLocalCache
   :: MonadIO m
   => FilePath -- ^ The cache definition
   -> CachePrefix -- ^ A prefix for folders at top level in the cache.
-  -> ProjectNameAndVersion -- ^ The `ProjectNameAndVersion` used to identify the .version file
+  -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the Framework in the cache
+  -> FrameworkVector -- ^ The `FrameworkVector` used to identify the .version file
   -> ExceptT String m LBS.ByteString
-getVersionFileFromLocalCache lCacheDir (CachePrefix prefix) projectNameAndVersion
+getVersionFileFromLocalCache lCacheDir (CachePrefix prefix) reverseRomeMap fVector
   = do
-    versionFileExistsInLocalCache <-
-      liftIO . doesFileExist $ versionFileLocalCachePath
+    case temp_versionFileRemotePath reverseRomeMap fVector of
+      Just versionFileRemotePath -> do
+        versionFileExistsInLocalCache <-
+          liftIO . doesFileExist $ versionFileLocalCachePath
 
-    if versionFileExistsInLocalCache
-      then
-        liftIO
-        .    runResourceT
-        .    C.runConduit
-        $    C.sourceFile versionFileLocalCachePath
-        C..| C.sinkLbs
-      else
-        throwError
-        $  "Error: could not find "
-        <> versionFileName
-        <> " in local cache at : "
-        <> versionFileLocalCachePath
- where
-  versionFileName = versionFileNameForProjectName $ fst projectNameAndVersion
-  versionFileRemotePath = remoteVersionFilePath projectNameAndVersion
-  versionFileLocalCachePath = lCacheDir </> prefix </> versionFileRemotePath
+        if versionFileExistsInLocalCache
+          then
+            liftIO
+            .    runResourceT
+            .    C.runConduit
+            $    C.sourceFile versionFileLocalCachePath
+            C..| C.sinkLbs
+          else
+            throwError
+            $  "Error: could not find "
+            <> verboseDebugFileName
+            <> " in local cache at : "
+            <> versionFileLocalCachePath
+       where
+        verboseDebugFileName = takeFileName $ versionFileRemotePath
+        versionFileLocalCachePath =
+          lCacheDir </> prefix </> versionFileRemotePath
+      _ -> pure mempty
 
 
 
@@ -404,10 +408,11 @@ getAndUnzipDSYMFromLocalCache buildTypeConfig lCacheDir reverseRomeMap fVector p
 getAndSaveVersionFilesFromLocalCache
   :: MonadIO m
   => FilePath -- ^ The cache definition.
-  -> [ProjectNameAndVersion] -- ^ A list of `ProjectNameAndVersion` identifying the .version files
+  -> InvertedRepositoryMap
+  -> [FrameworkVector] -- ^ A list of `FrameworkVector` identifying the .version files
   -> [ExceptT String (ReaderT (CachePrefix, Bool) m) ()]
-getAndSaveVersionFilesFromLocalCache lCacheDir =
-  map (getAndSaveVersionFileFromLocalCache lCacheDir)
+getAndSaveVersionFilesFromLocalCache lCacheDir reverseRomeMap =
+  map (getAndSaveVersionFileFromLocalCache lCacheDir reverseRomeMap)
 
 
 
@@ -416,28 +421,39 @@ getAndSaveVersionFilesFromLocalCache lCacheDir =
 getAndSaveVersionFileFromLocalCache
   :: MonadIO m
   => FilePath -- ^ The cache definition.
-  -> ProjectNameAndVersion -- ^ The `ProjectNameAndVersion` identifying the .version file
+  -> InvertedRepositoryMap
+  -> FrameworkVector -- ^ The `FrameworkVector` used to indentify the .version file
   -> ExceptT String (ReaderT (CachePrefix, Bool) m) ()
-getAndSaveVersionFileFromLocalCache lCacheDir projectNameAndVersion = do
-  (cachePrefix@(CachePrefix prefix), verbose) <- ask
-  let finalVersionFileLocalCachePath = versionFileLocalCachePath prefix
-  let sayFunc                        = if verbose then sayLnWithTime else sayLn
-  versionFileBinary <- getVersionFileFromLocalCache lCacheDir
-                                                    cachePrefix
-                                                    projectNameAndVersion
-  sayFunc
-    $  "Found "
-    <> versionFileName
-    <> " in local cache at: "
-    <> finalVersionFileLocalCachePath
-  liftIO $ saveBinaryToFile versionFileBinary versionFileLocalPath
-  sayFunc $ "Copied " <> versionFileName <> " to: " <> versionFileLocalPath
- where
-  versionFileName = versionFileNameForProjectName $ fst projectNameAndVersion
-  versionFileRemotePath = remoteVersionFilePath projectNameAndVersion
-  versionFileLocalPath = carthageBuildDirectory </> versionFileName
-  versionFileLocalCachePath cPrefix =
-    lCacheDir </> cPrefix </> versionFileRemotePath
+getAndSaveVersionFileFromLocalCache lCacheDir reverseRomeMap fVector = do
+  case
+      ( temp_versionFileLocalPath reverseRomeMap fVector
+      , temp_versionFileRemotePath reverseRomeMap fVector
+      )
+    of
+      (Just versionFileLocalPath, Just versionFileRemotePath) -> do
+        (cachePrefix@(CachePrefix prefix), verbose) <- ask
+        let finalVersionFileLocalCachePath = versionFileLocalCachePath prefix
+        let sayFunc = if verbose then sayLnWithTime else sayLn
+        versionFileBinary <- getVersionFileFromLocalCache lCacheDir
+                                                          cachePrefix
+                                                          reverseRomeMap
+                                                          fVector
+        sayFunc
+          $  "Found "
+          <> verboseDebugFileName
+          <> " in local cache at: "
+          <> finalVersionFileLocalCachePath
+        liftIO $ saveBinaryToFile versionFileBinary versionFileLocalPath
+        sayFunc
+          $  "Copied "
+          <> verboseDebugFileName
+          <> " to: "
+          <> versionFileLocalPath
+       where
+        verboseDebugFileName = takeFileName $ versionFileRemotePath
+        versionFileLocalCachePath cPrefix =
+          lCacheDir </> cPrefix </> versionFileRemotePath
+      _ -> pure mempty
 
 
 

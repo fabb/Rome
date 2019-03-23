@@ -469,7 +469,8 @@ downloadArtifacts buildTypeConfig mS3BucketName mlCacheDir reverseRepositoryMap 
                         CarthageConfig{} -> runReaderT
                                 (downloadVersionFilesFromCaches s3BucketName
                                                                 lCacheDir
-                                                                gitRepoNamesAndVersions
+                                                                reverseRepositoryMap
+                                                                frameworkVectors
                                 )
                                 uploadDownloadEnv
                         PodBuilderConfig{} -> mempty -- PodBuilder does not have .version files, rather PodBuilder.plist files that are part of the .framework
@@ -496,25 +497,17 @@ downloadArtifacts buildTypeConfig mS3BucketName mlCacheDir reverseRepositoryMap 
               mapM_ (whenLeft sayFunc) errors
             )
             readerEnv
-          case buildTypeConfig of
-            CarthageConfig{} -> do
-              runReaderT
-                (do
-                  errors <- mapM runExceptT $ getAndSaveVersionFilesFromLocalCache
-                    lCacheDir
-                    gitRepoNamesAndVersions
-                  mapM_ (whenLeft sayFunc) errors
-                )
-                readerEnv
-            PodBuilderConfig{} -> liftIO mempty -- PodBuilder does not have .version files, rather PodBuilder.plist files that are part of the .framework
+          runReaderT
+            (do
+              errors <- mapM runExceptT $ getAndSaveVersionFilesFromLocalCache
+                lCacheDir
+                reverseRepositoryMap
+                frameworkVectors
+              mapM_ (whenLeft sayFunc) errors
+            )
+            readerEnv
 
       (Nothing, Nothing) -> throwError bothCacheKeysMissingMessage
- where
-
-  gitRepoNamesAndVersions :: [ProjectNameAndVersion]
-  gitRepoNamesAndVersions = repoNamesAndVersionForFrameworkVectors
-    reverseRepositoryMap
-    frameworkVectors
 
 
 
@@ -841,10 +834,11 @@ saveFrameworkAndArtifactsToLocalCache buildTypeConfig lCacheDir reverseRomeMap f
 downloadVersionFilesFromCaches
   :: S3.BucketName -- ^ The cache definition.
   -> Maybe FilePath  -- ^ Just the local cache path or Nothing
-  -> [ProjectNameAndVersion] -- ^ A list of `ProjectName`s and `Version`s information.
+  -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
+  -> [FrameworkVector] -- ^ A list of `FrameworkVector` used to derive the name and path of the .version files.
   -> ReaderT UploadDownloadCmdEnv IO ()
-downloadVersionFilesFromCaches s3BucketName lDir =
-  mapM_ (downloadVersionFileFromCaches s3BucketName lDir)
+downloadVersionFilesFromCaches s3BucketName lDir reverseRomeMap =
+  mapM_ (downloadVersionFileFromCaches s3BucketName lDir reverseRomeMap)
 
 
 
@@ -855,71 +849,79 @@ downloadVersionFilesFromCaches s3BucketName lDir =
 downloadVersionFileFromCaches
   :: S3.BucketName -- ^ The cache definition.
   -> Maybe FilePath -- ^ Just the local cache path or Nothing
-  -> ProjectNameAndVersion -- ^ The `ProjectName` and `Version` information.
+  -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
+  -> FrameworkVector -- ^ A `FrameworkVector` used to derive the name and path of the .version file.
   -> ReaderT UploadDownloadCmdEnv IO ()
-downloadVersionFileFromCaches s3BucketName (Just lCacheDir) projectNameAndVersion
-  = do
-    (env, cachePrefix@(CachePrefix prefix), SkipLocalCacheFlag skipLocalCache, _, verbose) <-
-      ask
-
-    when skipLocalCache $ downloadVersionFileFromCaches s3BucketName
-                                                        Nothing
-                                                        projectNameAndVersion
-
-    unless skipLocalCache $ do
-      eitherSuccess <- runReaderT
-        (runExceptT $ getAndSaveVersionFileFromLocalCache
-          lCacheDir
-          projectNameAndVersion
-        )
-        (cachePrefix, verbose)
-      case eitherSuccess of
-        Right _ -> return ()
-        Left  e -> liftIO $ do
-          let sayFunc :: MonadIO m => String -> m ()
-              sayFunc = if verbose then sayLnWithTime else sayLn
-          sayFunc e
-          runReaderT
-            (do
-              e2 <- runExceptT $ do
-                versionFileBinary <- getVersionFileFromS3
-                  s3BucketName
-                  projectNameAndVersion
-                saveBinaryToLocalCache lCacheDir
-                                       versionFileBinary
-                                       (prefix </> versionFileRemotePath)
-                                       versionFileName
-                                       verbose
-                liftIO $ saveBinaryToFile versionFileBinary versionFileLocalPath
-                sayFunc
-                  $  "Copied "
-                  <> versionFileName
-                  <> " to: "
-                  <> versionFileLocalPath
-              whenLeft sayFunc e2
-            )
-            (env, cachePrefix, verbose)
- where
-  versionFileName = versionFileNameForProjectName $ fst projectNameAndVersion
-  versionFileLocalPath = carthageBuildDirectory </> versionFileName
-  versionFileRemotePath = remoteVersionFilePath projectNameAndVersion
-
-downloadVersionFileFromCaches s3BucketName Nothing projectNameAndVersion = do
-  (env, cachePrefix, _, _, verbose) <- ask
-  let sayFunc :: MonadIO m => String -> m ()
-      sayFunc = if verbose then sayLnWithTime else sayLn
-  eitherError <- liftIO $ runReaderT
-    (runExceptT $ do
-      versionFileBinary <- getVersionFileFromS3 s3BucketName
-                                                projectNameAndVersion
-      liftIO $ saveBinaryToFile versionFileBinary versionFileLocalPath
-      sayFunc $ "Copied " <> versionFileName <> " to: " <> versionFileLocalPath
+downloadVersionFileFromCaches s3BucketName (Just lCacheDir) reverseRomeMap fVector
+  =
+    case
+    ( temp_versionFileLocalPath reverseRomeMap fVector
+    , temp_versionFileRemotePath reverseRomeMap fVector
     )
-    (env, cachePrefix, verbose)
-  whenLeft sayFunc eitherError
- where
-  versionFileName = versionFileNameForProjectName $ fst projectNameAndVersion
-  versionFileLocalPath = carthageBuildDirectory </> versionFileName
+      of
+        (Just versionFileLocalPath, Just versionFileRemotePath) -> do
+          (env, cachePrefix@(CachePrefix prefix), SkipLocalCacheFlag skipLocalCache, _, verbose) <- ask
+
+          when skipLocalCache $ downloadVersionFileFromCaches s3BucketName
+                                                              Nothing
+                                                              reverseRomeMap
+                                                              fVector
+
+          unless skipLocalCache $ do
+            eitherSuccess <- runReaderT
+              (runExceptT $ getAndSaveVersionFileFromLocalCache
+                lCacheDir
+                reverseRomeMap
+                fVector
+              )
+              (cachePrefix, verbose)
+            case eitherSuccess of
+              Right _ -> return ()
+              Left  e -> liftIO $ do
+                let sayFunc :: MonadIO m => String -> m ()
+                    sayFunc = if verbose then sayLnWithTime else sayLn
+                sayFunc e
+                runReaderT
+                  (do
+                    e2 <- runExceptT $ do
+                      versionFileBinary <- getVersionFileFromS3
+                        s3BucketName
+                        reverseRomeMap
+                        fVector
+                      saveBinaryToLocalCache lCacheDir
+                                            versionFileBinary
+                                            (prefix </> versionFileRemotePath)
+                                            verboseDebugFileName
+                                            verbose
+                      liftIO $ saveBinaryToFile versionFileBinary versionFileLocalPath
+                      sayFunc
+                        $  "Copied "
+                        <> verboseDebugFileName
+                        <> " to: "
+                        <> versionFileLocalPath
+                    whenLeft sayFunc e2
+                  )
+                  (env, cachePrefix, verbose)
+            where verboseDebugFileName = takeFileName $ versionFileRemotePath
+        _ -> pure mempty
+
+downloadVersionFileFromCaches s3BucketName Nothing reverseRomeMap fVector = do
+  case temp_versionFileLocalPath reverseRomeMap fVector of
+    Just versionFileLocalPath -> do
+      (env, cachePrefix, _, _, verbose) <- ask
+      let sayFunc :: MonadIO m => String -> m ()
+          sayFunc = if verbose then sayLnWithTime else sayLn
+      eitherError <- liftIO $ runReaderT
+        (runExceptT $ do
+          versionFileBinary <- getVersionFileFromS3 s3BucketName reverseRomeMap fVector
+          liftIO $ saveBinaryToFile versionFileBinary versionFileLocalPath
+          sayFunc $ "Copied " <> verboseDebugFileName <> " to: " <> versionFileLocalPath
+        )
+        (env, cachePrefix, verbose)
+      whenLeft sayFunc eitherError
+      where
+        verboseDebugFileName = takeFileName $ versionFileLocalPath
+    _ -> pure mempty
 
 
 
