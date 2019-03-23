@@ -13,7 +13,9 @@ import           Data.Romefile                  ( Framework(..) )
 import qualified Data.Text                     as T
 import qualified Network.AWS                   as AWS
 import qualified Network.AWS.S3                as S3
-import           System.FilePath                ( (</>) )
+import           System.FilePath                ( (</>)
+                                                , takeFileName
+                                                )
 import           Types                   hiding ( version )
 import           Utils
 import           Xcode.DWARF
@@ -100,19 +102,25 @@ uploadBcsymbolmapToS3 dwarfUUID dwarfArchive s3BucketName reverseRomeMap fVector
 uploadVersionFileToS3
   :: S3.BucketName -- ^ The cache definition.
   -> LBS.ByteString -- ^ The contents of the .version file.
-  -> ProjectNameAndVersion -- ^ The information used to derive the name and path for the .version file.
+  -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
+  -> FrameworkVector -- ^ The information used to derive the name and path for the .version file.
   -> ReaderT (AWS.Env, CachePrefix, Bool) IO ()
-uploadVersionFileToS3 s3BucketName versionFileContent projectNameAndVersion =
+uploadVersionFileToS3 s3BucketName versionFileContent reverseRomeMap fVector =
   do
-    (env, CachePrefix prefix, verbose) <- ask
-    withReaderT (const (env, verbose)) $ uploadBinary
-      s3BucketName
-      versionFileContent
-      (prefix </> versionFileRemotePath)
-      versionFileName
- where
-  versionFileName = versionFileNameForProjectName $ fst projectNameAndVersion
-  versionFileRemotePath = remoteVersionFilePath projectNameAndVersion
+    case
+        ( temp_versionFileLocalPath reverseRomeMap fVector
+        , temp_versionFileRemotePath reverseRomeMap fVector
+        )
+      of
+        (Just versionFileLocalPath, Just versionFileRemotePath) -> do
+          (env, CachePrefix prefix, verbose) <- ask
+          withReaderT (const (env, verbose)) $ uploadBinary
+            s3BucketName
+            versionFileContent
+            (prefix </> versionFileRemotePath)
+            verboseDebugName
+          where verboseDebugName = takeFileName $ versionFileLocalPath
+        _ -> pure mempty
 
 
 

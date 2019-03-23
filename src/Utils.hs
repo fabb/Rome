@@ -6,7 +6,9 @@
 module Utils where
 
 import qualified Codec.Archive.Zip            as Zip
-import           Configuration                (artifactsBuildDirectoryForPlatform)
+import           Configuration                ( artifactsBuildDirectoryForPlatform
+                                              , carthageBuildDirectory
+                                              )
 import           Control.Applicative          ( (<|>) )
 import           Control.Arrow                (left)
 import           Control.Exception            as E (try)
@@ -374,6 +376,10 @@ remoteCacheDirectory p r f = repoName </> show p ++ "/"
 -- | `ProjectNameAndVersion`
 remoteVersionFilePath :: ProjectNameAndVersion -> String
 remoteVersionFilePath (projectName, version) =
+  remoteVersionFilePath' projectName version
+
+remoteVersionFilePath' :: ProjectName -> Version -> String
+remoteVersionFilePath' projectName version =
   unProjectName projectName
     </> versionFileNameForProjectNameVersioned projectName version
 
@@ -925,3 +931,28 @@ temp_remoteBcSymbolmapPath platform reverseRomeMap fVector dwarfUUID
     reverseRomeMap
     (_framework $ _vectorFrameworkVersion fVector)
     (_frameworkVersion $ _vectorFrameworkVersion fVector)
+
+
+-- TODO Nothing for PodBuilder
+temp_versionFileLocalPath
+  :: InvertedRepositoryMap -> FrameworkVector -> Maybe FilePath
+temp_versionFileLocalPath reverseRomeMap fVector =
+  Just $ carthageBuildDirectory </> versionFileName
+ where
+  projectName =
+    repoNameForFrameworkName reverseRomeMap
+      $ _framework
+      $ _vectorFrameworkVersion fVector
+  versionFileName = versionFileNameForProjectName projectName
+
+-- TODO Nothing for PodBuilder
+temp_versionFileRemotePath
+  :: InvertedRepositoryMap -> FrameworkVector -> Maybe FilePath
+temp_versionFileRemotePath reverseRomeMap fVector =
+  Just $ remoteVersionFilePath' projectName version
+ where
+  projectName =
+    repoNameForFrameworkName reverseRomeMap
+      $ _framework
+      $ _vectorFrameworkVersion fVector
+  version = (_frameworkVersion $ _vectorFrameworkVersion fVector)

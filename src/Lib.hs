@@ -557,7 +557,8 @@ uploadArtifacts buildTypeConfig mS3BucketName mlCacheDir reverseRepositoryMap fr
                         CarthageConfig{} -> runReaderT
                                 (uploadVersionFilesToCaches s3BucketName
                                                             lCacheDir
-                                                            gitRepoNamesAndVersions
+                                                            reverseRepositoryMap
+                                                            frameworkVectors
                                 )
                                 uploadDownloadEnv
                         PodBuilderConfig{} -> mempty -- PodBuilder does not have .version files, rather PodBuilder.plist files that are part of the .framework
@@ -577,18 +578,14 @@ uploadArtifacts buildTypeConfig mS3BucketName mlCacheDir reverseRepositoryMap fr
                                                        platforms
                )
                readerEnv
-          >> case buildTypeConfig of
-            CarthageConfig{} -> do
-              runReaderT
-                (saveVersionFilesToLocalCache lCacheDir gitRepoNamesAndVersions)
-                readerEnv
-            PodBuilderConfig{} -> mempty -- PodBuilder does not have .version files, rather PodBuilder.plist files that are part of the .framework
+          >> runReaderT
+               (saveVersionFilesToLocalCache lCacheDir
+                                             reverseRepositoryMap
+                                             frameworkVectors
+               )
+               readerEnv
+
       (Nothing, Nothing) -> throwError bothCacheKeysMissingMessage
- where
-  gitRepoNamesAndVersions :: [ProjectNameAndVersion]
-  gitRepoNamesAndVersions = repoNamesAndVersionForFrameworkVectors
-    reverseRepositoryMap
-    frameworkVectors
 
 
 
@@ -597,10 +594,11 @@ uploadArtifacts buildTypeConfig mS3BucketName mlCacheDir reverseRepositoryMap fr
 uploadVersionFilesToCaches
   :: S3.BucketName -- ^ The cache definition.
   -> Maybe FilePath -- ^ Just the path to the local cache or Nothing.
-  -> [ProjectNameAndVersion] -- ^ A list of `ProjectName` and `Version` information.
+  -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
+  -> [FrameworkVector] -- ^ A list of `FrameworkVector` used to derive the name and path of the .version files.
   -> ReaderT UploadDownloadCmdEnv IO ()
-uploadVersionFilesToCaches s3Bucket mlCacheDir =
-  mapM_ (uploadVersionFileToCaches s3Bucket mlCacheDir)
+uploadVersionFilesToCaches s3Bucket mlCacheDir reverseRomeMap =
+  mapM_ (uploadVersionFileToCaches s3Bucket mlCacheDir reverseRomeMap)
 
 
 
@@ -609,33 +607,35 @@ uploadVersionFilesToCaches s3Bucket mlCacheDir =
 uploadVersionFileToCaches
   :: S3.BucketName -- ^ The cache definition.
   -> Maybe FilePath -- ^ Just the path to the local cache or Nothing.
-  -> ProjectNameAndVersion -- ^ The information used to derive the name and path for the .version file.
+  -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
+  -> FrameworkVector -- ^ A `FrameworkVector` used to derive the name and path of the .version file.
   -> ReaderT UploadDownloadCmdEnv IO ()
-uploadVersionFileToCaches s3BucketName mlCacheDir projectNameAndVersion = do
-  (env, cachePrefix, SkipLocalCacheFlag skipLocalCache, _, verbose) <- ask
+uploadVersionFileToCaches s3BucketName mlCacheDir reverseRomeMap fVector = do
+  case (temp_versionFileLocalPath reverseRomeMap fVector) of
+    Just versionFileLocalPath -> do
+      (env, cachePrefix, SkipLocalCacheFlag skipLocalCache, _, verbose) <- ask
 
-  versionFileExists <- liftIO $ doesFileExist versionFileLocalPath
+      versionFileExists <- liftIO $ doesFileExist versionFileLocalPath
 
-  when versionFileExists $ do
-    versionFileContent <- liftIO $ LBS.readFile versionFileLocalPath
-    unless skipLocalCache
-      $   maybe (return ()) liftIO
-      $   saveVersionFileBinaryToLocalCache
-      <$> mlCacheDir
-      <*> Just cachePrefix
-      <*> Just versionFileContent
-      <*> Just projectNameAndVersion
-      <*> Just verbose
-    liftIO $ runReaderT
-      (uploadVersionFileToS3 s3BucketName
-                             versionFileContent
-                             projectNameAndVersion
-      )
-      (env, cachePrefix, verbose)
- where
-
-  versionFileName = versionFileNameForProjectName $ fst projectNameAndVersion
-  versionFileLocalPath = carthageBuildDirectory </> versionFileName
+      when versionFileExists $ do
+        versionFileContent <- liftIO $ LBS.readFile versionFileLocalPath
+        unless skipLocalCache
+          $   maybe (return ()) liftIO
+          $   saveVersionFileBinaryToLocalCache
+          <$> mlCacheDir
+          <*> Just cachePrefix
+          <*> Just versionFileContent
+          <*> Just reverseRomeMap
+          <*> Just fVector
+          <*> Just verbose
+        liftIO $ runReaderT
+          (uploadVersionFileToS3 s3BucketName
+                                 versionFileContent
+                                 reverseRomeMap
+                                 fVector
+          )
+          (env, cachePrefix, verbose)
+    _ -> pure mempty
 
 
 
