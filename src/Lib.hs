@@ -465,15 +465,13 @@ downloadArtifacts buildTypeConfig mS3BucketName mlCacheDir reverseRepositoryMap 
                                                         platforms
               )
               uploadDownloadEnv
-        let action2 = case buildTypeConfig of
-                        CarthageConfig{} -> runReaderT
-                                (downloadVersionFilesFromCaches s3BucketName
-                                                                lCacheDir
-                                                                reverseRepositoryMap
-                                                                frameworkVectors
-                                )
-                                uploadDownloadEnv
-                        PodBuilderConfig{} -> mempty -- PodBuilder does not have .version files, rather PodBuilder.plist files that are part of the .framework
+        let action2 = runReaderT
+              (downloadVersionFilesFromCaches s3BucketName
+                                              lCacheDir
+                                              reverseRepositoryMap
+                                              frameworkVectors
+              )
+              uploadDownloadEnv
         if performConcurrently
           then liftIO $ concurrently_ action1 action2
           else liftIO $ action1 >> action2
@@ -546,15 +544,13 @@ uploadArtifacts buildTypeConfig mS3BucketName mlCacheDir reverseRepositoryMap fr
                                                     platforms
               )
               uploadDownloadEnv
-        let action2 = case buildTypeConfig of
-                        CarthageConfig{} -> runReaderT
-                                (uploadVersionFilesToCaches s3BucketName
-                                                            lCacheDir
-                                                            reverseRepositoryMap
-                                                            frameworkVectors
-                                )
-                                uploadDownloadEnv
-                        PodBuilderConfig{} -> mempty -- PodBuilder does not have .version files, rather PodBuilder.plist files that are part of the .framework
+        let action2 = runReaderT
+              (uploadVersionFilesToCaches s3BucketName
+                                          lCacheDir
+                                          reverseRepositoryMap
+                                          frameworkVectors
+              )
+              uploadDownloadEnv
         if performConcurrently
           then liftIO $ concurrently_ action1 action2
           else liftIO $ action1 >> action2
