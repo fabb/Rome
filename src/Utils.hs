@@ -429,27 +429,6 @@ repoNameForFrameworkName reverseRomeMap framework = fromMaybe
 
 
 
--- | Given an `InvertedRepositoryMap` and a list of  `FrameworkVector` produces
--- | a list of __unique__ `ProjectNameAndVersion`s
--- TODO put this method as field into FrameworkVector?
-repoNamesAndVersionForFrameworkVectors
-  :: InvertedRepositoryMap -> [FrameworkVector] -> [ProjectNameAndVersion]
-repoNamesAndVersionForFrameworkVectors reverseRomeMap vectors =
-  repoNamesAndVersionForFrameworkVersions reverseRomeMap
-    $ map _vectorFrameworkVersion vectors
-
-
-
--- | Given an `InvertedRepositoryMap` and a list of  `FrameworkVersion` produces
--- | a list of __unique__ `ProjectNameAndVersion`s
-repoNamesAndVersionForFrameworkVersions
-  :: InvertedRepositoryMap -> [FrameworkVersion] -> [ProjectNameAndVersion]
-repoNamesAndVersionForFrameworkVersions reverseRomeMap versions = nub $ zip
-  (map (repoNameForFrameworkName reverseRomeMap . _framework) versions)
-  (map _frameworkVersion versions)
-
-
-
 -- | Given a `ProjectName` produces the appropriate file name for the corresponding
 -- | Carthage VersionFile
 versionFileNameForProjectName :: ProjectName -> String
