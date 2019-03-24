@@ -69,7 +69,7 @@ probeLocalCacheForFrameworkOnPlatform lCacheDir (CachePrefix prefix) reverseRome
  where
   frameworkLocalCachePath = lCacheDir </> prefix </> remoteFrameworkUploadPath
   remoteFrameworkUploadPath =
-    _remoteFrameworkPath frameworkVector platform reverseRomeMap
+    _remoteFrameworkPath (_vectorPaths frameworkVector) platform reverseRomeMap
 
 
 

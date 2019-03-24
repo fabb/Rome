@@ -22,7 +22,7 @@ nonEmptyString :: Gen String
 nonEmptyString = listOf1 arbitrary
 
 instance Arbitrary FrameworkVector where
-  arbitrary = liftM (\fv -> FrameworkVector{_vectorFrameworkVersion = fv, _remoteFrameworkPath = (\x y -> "")}) arbitrary
+  arbitrary = liftM (\fv -> FrameworkVector{_vectorFrameworkVersion = fv, _vectorPaths = FrameworkVectorPaths (\x y -> "")}) arbitrary
 
 instance Arbitrary FrameworkVersion where
   arbitrary = liftM2 FrameworkVersion arbitrary arbitrary
@@ -73,7 +73,10 @@ prop_filterOutFrameworkNamesAndVersionsIfNotIn_filterAllOut
   :: [Version] -> [Framework] -> Bool
 prop_filterOutFrameworkNamesAndVersionsIfNotIn_filterAllOut vs fws =
   null
-    $ (FrameworkVector <$> (FrameworkVersion <$> fws <*> vs) <*> [(\x y -> "")])
+    $ (   FrameworkVector
+      <$> (FrameworkVersion <$> fws <*> vs)
+      <*> [FrameworkVectorPaths (\x y -> "")]
+      )
     `filterOutFrameworksAndVersionsIfNotIn` fws
 
 prop_split_length :: Char -> String -> Property

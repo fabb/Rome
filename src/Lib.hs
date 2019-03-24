@@ -1007,7 +1007,7 @@ downloadFrameworkAndArtifactsFromCaches buildTypeConfig s3BucketName (Just lCach
                                                       platform
                 saveBinaryToLocalCache lCacheDir
                                        frameworkBinary
-                                       (prefix </> _remoteFrameworkPath fVector platform reverseRomeMap)
+                                       (prefix </> _remoteFrameworkPath (_vectorPaths fVector) platform reverseRomeMap)
                                        verboseFrameworkDebugName
                                        verbose
                 deleteFrameworkDirectory buildTypeConfig fVector platform verbose

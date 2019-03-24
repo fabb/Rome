@@ -56,7 +56,9 @@ getFrameworkFromS3 s3BucketName reverseRomeMap fVector platform = do
     (withReaderT (const (env, verbose)))
     (getArtifactFromS3
       s3BucketName
-      (prefix </> _remoteFrameworkPath fVector platform reverseRomeMap)
+      (   prefix
+      </> _remoteFrameworkPath (_vectorPaths fVector) platform reverseRomeMap
+      )
       verboseFrameworkDebugName
     )
  where

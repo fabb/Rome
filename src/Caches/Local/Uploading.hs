@@ -37,7 +37,9 @@ saveFrameworkToLocalCache lCacheDir frameworkArchive reverseRomeMap fVector plat
     unless skipLocalCache $ saveBinaryToLocalCache
       lCacheDir
       (Zip.fromArchive frameworkArchive)
-      (prefix </> _remoteFrameworkPath fVector platform reverseRomeMap)
+      (   prefix
+      </> _remoteFrameworkPath (_vectorPaths fVector) platform reverseRomeMap
+      )
       verboseDebugName
       verbose
  where

@@ -67,7 +67,9 @@ probeS3ForFrameworkOnPlatform s3BucketName reverseRomeMap frameworkVector platfo
     S3.ObjectKey
       .   T.pack
       $   cPrefix
-      </> _remoteFrameworkPath frameworkVector platform reverseRomeMap
+      </> _remoteFrameworkPath (_vectorPaths frameworkVector)
+                               platform
+                               reverseRomeMap
 
 
 

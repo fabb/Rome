@@ -36,7 +36,9 @@ uploadFrameworkToS3 frameworkArchive s3BucketName reverseRomeMap fVector platfor
     withReaderT (const (env, verbose)) $ uploadBinary
       s3BucketName
       (Zip.fromArchive frameworkArchive)
-      (prefix </> _remoteFrameworkPath fVector platform reverseRomeMap)
+      (   prefix
+      </> _remoteFrameworkPath (_vectorPaths fVector) platform reverseRomeMap
+      )
       verboseDebugName
  where
   -- TODO move to FrameworkVector?

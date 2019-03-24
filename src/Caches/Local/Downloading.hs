@@ -53,7 +53,7 @@ getFrameworkFromLocalCache lCacheDir (CachePrefix prefix) reverseRomeMap fVector
   frameworkLocalCachePath =
     lCacheDir
       </> prefix
-      </> _remoteFrameworkPath fVector platform reverseRomeMap
+      </> _remoteFrameworkPath (_vectorPaths fVector) platform reverseRomeMap
   --  TODO move to FrameworkVector?
   verboseFrameworkDebugName =
     (_frameworkName $ _framework $ _vectorFrameworkVersion fVector)
@@ -207,7 +207,7 @@ getAndUnzipBcsymbolmapFromLocalCache buildTypeConfig lCacheDir reverseRomeMap fV
   frameworkLocalCachePath prefix =
     lCacheDir
       </> prefix
-      </> _remoteFrameworkPath fVector platform reverseRomeMap
+      </> _remoteFrameworkPath (_vectorPaths fVector) platform reverseRomeMap
   bcsymbolmapPath = temp_bcSymbolMapPath buildTypeConfig platform fVector
   -- TODO move to FrameworkVector?
   symbolmapName =
@@ -347,7 +347,7 @@ getAndUnzipFrameworkFromLocalCache buildTypeConfig lCacheDir reverseRomeMap fVec
   frameworkLocalCachePath prefix =
     lCacheDir
       </> prefix
-      </> _remoteFrameworkPath fVector platform reverseRomeMap
+      </> _remoteFrameworkPath (_vectorPaths fVector) platform reverseRomeMap
   -- TODO move to FrameworkVector?
   verboseFrameworkDebugName =
     (_frameworkName $ _framework $ _vectorFrameworkVersion fVector)

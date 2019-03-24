@@ -271,7 +271,7 @@ filterByFrameworkEqualTo versions f =
 filterOutFrameworksAndVersionsIfNotIn
   :: [FrameworkVector] -> [Framework] -> [FrameworkVector]
 filterOutFrameworksAndVersionsIfNotIn vectors frameworks = do
-  vec@(FrameworkVector ver@(FrameworkVersion f@(Framework n t ps) v) rfp) <-
+  vec@(FrameworkVector ver@(FrameworkVersion f@(Framework n t ps) v) paths) <-
     vectors -- For each version
   let filtered =
         (\(Framework nF tF psF) -> nF == n && tF == t) `filter` frameworks -- filter the frameworks to exclude based on name and type, not on the platforms
@@ -281,7 +281,7 @@ filterOutFrameworksAndVersionsIfNotIn vectors frameworks = do
       let op =
             f `removePlatformsIn` nub (concatMap _frameworkPlatforms filtered)
       guard (not . null $ _frameworkPlatforms op) -- if the entry completely filters out the FrameworkVector then remove it
-      return $ FrameworkVector (FrameworkVersion op v) rfp -- if it doesn't, then remove from f the platforms that appear in the filter above.
+      return $ FrameworkVector (FrameworkVersion op v) paths -- if it doesn't, then remove from f the platforms that appear in the filter above.
  where
   removePlatformsIn :: Framework -> [TargetPlatform] -> Framework
   removePlatformsIn (Framework n t ps) rPs =
@@ -471,12 +471,14 @@ tempWrapFrameworkVersionInFrameworkVector
 tempWrapFrameworkVersionInFrameworkVector buildTypeConfig frameworkVersion =
   FrameworkVector
     { _vectorFrameworkVersion = frameworkVersion
-    , _remoteFrameworkPath    = (\p m -> remoteFrameworkPath
-                                  p
-                                  m
-                                  (_framework frameworkVersion)
-                                  (_frameworkVersion frameworkVersion)
-                                )
+    , _vectorPaths            = FrameworkVectorPaths
+      { _remoteFrameworkPath = (\p m -> remoteFrameworkPath
+                                 p
+                                 m
+                                 (_framework frameworkVersion)
+                                 (_frameworkVersion frameworkVersion)
+                               )
+      }
     }
 
 -- | Given a `RepositoryMap` and either a list of `CartfileEntry` or a `PodBuilderInfo` creates a list of
