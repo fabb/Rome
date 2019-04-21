@@ -1,18 +1,19 @@
 {-# LANGUAGE DeriveGeneric #-}
 module Types where
 
-import           Control.Monad.Except         (ExceptT)
+import           Control.Monad.Except           ( ExceptT )
 import           Data.Aeson
 import           Data.Carthage.Cartfile         ( Version
                                                 , CartfileEntry
                                                 )
 import           Data.Carthage.TargetPlatform
 import           Data.PodBuilder.PodBuilderInfo ( PodBuilderInfo )
-import qualified Data.Map.Strict              as M
+import qualified Data.Map.Strict               as M
 import           Data.Romefile                (Framework, ProjectName)
 import           GHC.Generics
 import qualified Network.AWS.Env              as AWS (Env)
 import           Types.Commands
+import           Xcode.DWARF                    ( DwarfUUID )
 
 
 
@@ -41,7 +42,15 @@ data FrameworkVector = FrameworkVector { _vectorFrameworkVersion :: FrameworkVer
 instance Show FrameworkVector where
     show (FrameworkVector fv _) = "FrameworkVector " <> show fv
 
-data FrameworkVectorPaths = FrameworkVectorPaths { _remoteFrameworkPath :: TargetPlatform -> InvertedRepositoryMap -> FilePath
+data FrameworkVectorPaths = FrameworkVectorPaths { _frameworkPath :: TargetPlatform -> FilePath
+                                                 , _frameworkBinaryPath :: TargetPlatform -> FilePath
+                                                 , _dSYMPath :: TargetPlatform -> FilePath
+                                                 , _bcSymbolMapPath :: TargetPlatform -> DwarfUUID -> FilePath
+                                                 , _versionFileLocalPath :: InvertedRepositoryMap -> Maybe FilePath
+                                                 , _remoteFrameworkPath :: TargetPlatform -> InvertedRepositoryMap -> FilePath
+                                                 , _remoteDsymPath :: TargetPlatform -> InvertedRepositoryMap -> FilePath
+                                                 , _remoteBcSymbolmapPath :: TargetPlatform -> InvertedRepositoryMap -> DwarfUUID -> FilePath
+                                                 , _versionFileRemotePath :: InvertedRepositoryMap -> Maybe FilePath
                                                  }
 
 -- | Represents the name of a framework together with its version

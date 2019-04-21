@@ -2,22 +2,22 @@ module Caches.Local.Uploading where
 
 
 
-import qualified Codec.Archive.Zip            as Zip
+import qualified Codec.Archive.Zip             as Zip
 import           Configuration
 import           Control.Monad                (unless, when)
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader         (ReaderT, ask)
 import           Debug.Trace
-import qualified Data.ByteString.Lazy         as LBS
+import qualified Data.ByteString.Lazy          as LBS
 import           Data.Carthage.TargetPlatform
-import           Data.Monoid                  ((<>))
-import           Data.Romefile                (Framework (..))
+import           Data.Monoid                    ( (<>) )
+import           Data.Romefile                  ( Framework(..) )
 import           System.Directory
-import           System.FilePath              ( (</>)
-                                              , takeFileName
-                                              )
-import           Types                        hiding (version)
-import           Types.Commands               (SkipLocalCacheFlag (..))
+import           System.FilePath                ( (</>)
+                                                , takeFileName
+                                                )
+import           Types                   hiding ( version )
+import           Types.Commands                 ( SkipLocalCacheFlag(..) )
 import           Utils
 import           Xcode.DWARF
 
@@ -63,7 +63,8 @@ saveDsymToLocalCache lCacheDir dSYMArchive reverseRomeMap fVector platform =
     unless skipLocalCache $ saveBinaryToLocalCache
       lCacheDir
       (Zip.fromArchive dSYMArchive)
-      (prefix </> temp_remoteDsymPath platform reverseRomeMap fVector)
+      (prefix </> _remoteDsymPath (_vectorPaths fVector) platform reverseRomeMap
+      )
       verboseDebugName
       verbose
  where
@@ -88,7 +89,10 @@ saveBcsymbolmapToLocalCache lCacheDir dwarfUUID dwarfArchive reverseRomeMap fVec
       lCacheDir
       (Zip.fromArchive dwarfArchive)
       (   prefix
-      </> temp_remoteBcSymbolmapPath platform reverseRomeMap fVector dwarfUUID
+      </> _remoteBcSymbolmapPath (_vectorPaths fVector)
+                                 platform
+                                 reverseRomeMap
+                                 dwarfUUID
       )
       verboseDebugName
       verbose
@@ -141,7 +145,7 @@ saveVersonFileToLocalCache
   -> FrameworkVector -- ^ The information used to derive the name and path for the .version file.
   -> ReaderT (CachePrefix, Bool) IO ()
 saveVersonFileToLocalCache lCacheDir reverseRomeMap fVector = do
-  case temp_versionFileLocalPath reverseRomeMap fVector of
+  case _versionFileLocalPath (_vectorPaths fVector) reverseRomeMap of
     Just versionFileLocalPath -> do
       (cachePrefix, verbose) <- ask
       versionFileExists      <- liftIO $ doesFileExist versionFileLocalPath
@@ -170,7 +174,7 @@ saveVersionFileBinaryToLocalCache
   -> Bool -- ^ A flag controlling verbosity.
   -> m ()
 saveVersionFileBinaryToLocalCache lCacheDir (CachePrefix prefix) versionFileContent reverseRomeMap fVector
-  = case temp_versionFileRemotePath reverseRomeMap fVector of
+  = case _versionFileRemotePath (_vectorPaths fVector) reverseRomeMap of
     Just versionFileRemotePath -> do
       saveBinaryToLocalCache lCacheDir
                              versionFileContent

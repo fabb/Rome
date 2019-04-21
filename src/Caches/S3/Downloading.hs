@@ -81,7 +81,8 @@ getDSYMFromS3
 getDSYMFromS3 s3BucketName reverseRomeMap fVector platform = do
   (env, (CachePrefix prefix), verbose) <- ask
   let finalRemoteDSYMUploadPath =
-        prefix </> temp_remoteDsymPath platform reverseRomeMap fVector
+        prefix
+          </> _remoteDsymPath (_vectorPaths fVector) platform reverseRomeMap
   mapExceptT (withReaderT (const (env, verbose))) $ getArtifactFromS3
     s3BucketName
     finalRemoteDSYMUploadPath
@@ -104,7 +105,7 @@ getVersionFileFromS3
        (ReaderT (AWS.Env, CachePrefix, Bool) IO)
        LBS.ByteString
 getVersionFileFromS3 s3BucketName reverseRomeMap fVector = do
-  case temp_versionFileRemotePath reverseRomeMap fVector of
+  case _versionFileRemotePath (_vectorPaths fVector) reverseRomeMap of
     Just versionFileRemotePath -> do
       (env, CachePrefix prefix, verbose) <- ask
       let finalVersionFileRemotePath = prefix </> versionFileRemotePath
@@ -132,10 +133,10 @@ getBcsymbolmapFromS3 s3BucketName reverseRomeMap fVector platform dwarfUUID =
     (env, (CachePrefix prefix), verbose) <- ask
     let finalRemoteBcsymbolmaploadPath =
           prefix
-            </> temp_remoteBcSymbolmapPath platform
-                                           reverseRomeMap
-                                           fVector
-                                           dwarfUUID
+            </> _remoteBcSymbolmapPath (_vectorPaths fVector)
+                                       platform
+                                       reverseRomeMap
+                                       dwarfUUID
     mapExceptT (withReaderT (const (env, verbose))) $ getArtifactFromS3
       s3BucketName
       finalRemoteBcsymbolmaploadPath
@@ -180,7 +181,7 @@ getAndUnzipFrameworkFromS3 buildTypeConfig s3BucketName reverseRomeMap fVector p
     (_framework $ _vectorFrameworkVersion fVector)
     (_frameworkVersion $ _vectorFrameworkVersion fVector)
   frameworkExecutablePath =
-    temp_frameworkBinaryPath buildTypeConfig platform fVector
+    _frameworkBinaryPath (_vectorPaths fVector) platform 
 
 
 
@@ -233,7 +234,7 @@ getAndUnzipBcsymbolmapFromS3 buildTypeConfig s3BucketName reverseRomeMap fVector
                                             platform
                                             dwarfUUID
     deleteFile
-      (temp_bcSymbolMapPath buildTypeConfig platform fVector dwarfUUID)
+      (_bcSymbolMapPath (_vectorPaths fVector) platform  dwarfUUID)
       verbose
     unzipBinary binary
                 verboseSymbolmapDebugName
@@ -266,8 +267,8 @@ getAndUnzipBcsymbolmapsFromS3'
 getAndUnzipBcsymbolmapsFromS3' buildTypeConfig lCacheDir reverseRomeMap fVector platform
   = when (vectorSupportsPlatform fVector platform) $ do
 
-    dwarfUUIDs <- withExceptT (const ErrorGettingDwarfUUIDs) $ dwarfUUIDsFrom
-      (temp_frameworkBinaryPath buildTypeConfig platform fVector)
+    dwarfUUIDs <- withExceptT (const ErrorGettingDwarfUUIDs)
+      $ dwarfUUIDsFrom (_frameworkBinaryPath (_vectorPaths fVector) platform)
     eitherDwarfUUIDsOrSucces <- forM
       dwarfUUIDs
       (\dwarfUUID -> lift $ runExceptT
@@ -294,8 +295,8 @@ getArtifactFromS3
   -> String -- ^ A colloquial name for the artifact
   -> ExceptT String (ReaderT (AWS.Env, Bool) IO) LBS.ByteString
 getArtifactFromS3 s3BucketName remotePath artifactName = do
-  readerEnv@(_, verbose)            <- ask
-  eitherArtifact <- liftIO $ try $ runReaderT
+  readerEnv@(_, verbose) <- ask
+  eitherArtifact         <- liftIO $ try $ runReaderT
     (downloadBinary s3BucketName remotePath artifactName)
     readerEnv
   case eitherArtifact of

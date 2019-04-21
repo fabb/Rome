@@ -5,53 +5,53 @@
 
 module Utils where
 
-import qualified Codec.Archive.Zip            as Zip
-import           Configuration                ( artifactsBuildDirectoryForPlatform
-                                              , carthageBuildDirectory
-                                              )
-import           Control.Applicative          ( (<|>) )
-import           Control.Arrow                (left)
+import qualified Codec.Archive.Zip             as Zip
+import           Configuration                  ( artifactsBuildDirectoryForPlatform
+                                                , carthageBuildDirectory
+                                                )
+import           Control.Applicative            ( (<|>) )
+import           Control.Arrow                  ( left )
 import           Control.Exception            as E (try)
-import           Control.Lens                 hiding (List)
+import           Control.Lens            hiding ( List )
 import           Control.Monad.Catch
 import           Control.Monad.Except
 import           Control.Monad.Trans.Resource (MonadUnliftIO, runResourceT)
 import           Data.Aeson
 import           Data.Aeson.Types
-import qualified Data.ByteString.Char8        as BS
-import qualified Data.ByteString.Lazy         as LBS
+import qualified Data.ByteString.Char8         as BS
+import qualified Data.ByteString.Lazy          as LBS
 import           Data.Carthage.Cartfile
 import           Data.Carthage.TargetPlatform
 import           Data.PodBuilder.PodBuilderInfo as PB
-import           Data.Char                    (isNumber)
+import           Data.Char                      ( isNumber )
 import qualified Data.Conduit                 as C (runConduit, (.|))
 import qualified Data.Conduit.Binary          as C (sinkFile, sourceLbs)
-import           Data.Function                (on)
+import           Data.Function                  ( on )
 import           Data.List
-import qualified Data.Map.Strict              as M
+import qualified Data.Map.Strict               as M
 import           Data.Maybe                   (fromJust, fromMaybe)
 import           Data.Monoid
 import           Data.Romefile
-import qualified Data.Text                    as T
+import qualified Data.Text                     as T
 import           Data.Text.Encoding
-import qualified Data.Text.IO                 as T
+import qualified Data.Text.IO                  as T
 import           Data.Time
 import           Debug.Trace
 import qualified Network.AWS                  as AWS (Error, ErrorMessage(..), serviceMessage, _ServiceError)
 import qualified Network.AWS.Data.Text        as AWS (showText)
 
-import           Network.HTTP.Conduit         as HTTP
+import           Network.HTTP.Conduit          as HTTP
 import           Network.HTTP.Types.Header    as HTTP (hUserAgent)
-import           Numeric                      (showFFloat)
+import           Numeric                        ( showFFloat )
 import           System.Directory             (createDirectoryIfMissing,
                                                doesDirectoryExist,
                                                doesFileExist, getHomeDirectory,
                                                removeFile)
 import           System.FilePath              (addTrailingPathSeparator,
                                                dropFileName, normalise, (</>))
-import           System.IO.Error              (isDoesNotExistError)
+import           System.IO.Error                ( isDoesNotExistError )
 import           System.Path.NameManip        (absolute_path, guess_dotdot)
-import           Text.Read                    (readMaybe)
+import           Text.Read                      ( readMaybe )
 import qualified Turtle
 import           Types
 import           Xcode.DWARF                  (DwarfUUID, bcsymbolmapNameFrom)
@@ -119,8 +119,8 @@ awsErrorToString :: AWS.Error -> Bool -> String
 awsErrorToString e verbose = if verbose
   then show e
   else AWS.showText $ fromMaybe (AWS.ErrorMessage "Unexpected Error") maybeServiceError
-  where
-    maybeServiceError = view AWS.serviceMessage =<< (e ^? AWS._ServiceError)
+ where
+  maybeServiceError = view AWS.serviceMessage =<< (e ^? AWS._ServiceError)
 
 
 
@@ -472,14 +472,56 @@ tempWrapFrameworkVersionInFrameworkVector buildTypeConfig frameworkVersion =
   FrameworkVector
     { _vectorFrameworkVersion = frameworkVersion
     , _vectorPaths            = FrameworkVectorPaths
-      { _remoteFrameworkPath = (\p m -> remoteFrameworkPath
-                                 p
-                                 m
-                                 (_framework frameworkVersion)
-                                 (_frameworkVersion frameworkVersion)
-                               )
+      { _frameworkPath         = frameworkPath
+      , _frameworkBinaryPath   = (\p ->
+                                   frameworkPath p </> _frameworkName framework
+                                 )
+      , _dSYMPath              = (\p ->
+                                   platformBuildPath p
+                                     </> (frameworkNameWithFrameworkExtension <> ".dSYM")
+                                 )
+      , _bcSymbolMapPath       = (\p d ->
+                                   platformBuildPath p </> bcsymbolmapNameFrom d
+                                 )
+      , _versionFileLocalPath  = (\m ->
+        -- TODO Nothing for PodBuilder
+                                   Just
+                                     $   carthageBuildDirectory
+                                     </> versionFileName m
+                                 )
+      , _remoteFrameworkPath   = (\p m ->
+                                   remoteFrameworkPath p m framework version
+                                 )
+      , _remoteDsymPath        = (\p m -> remoteDsymPath p m framework version)
+      , _remoteBcSymbolmapPath = (\p m d -> remoteBcsymbolmapPath d
+                                                                  p
+                                   m
+                                                                  framework
+                                                                  version
+                                 )
+      , _versionFileRemotePath = (\m ->
+          -- TODO Nothing for PodBuilder
+                                        Just $ remoteVersionFilePath'
+                                   (projectName m)
+                                   version
+                                 )
       }
     }
+ where
+  framework = _framework frameworkVersion
+  version   = _frameworkVersion frameworkVersion
+  frameworkNameWithFrameworkExtension =
+    appendFrameworkExtensionTo (_framework $ frameworkVersion)
+  platformBuildPath platform = artifactsBuildDirectoryForPlatform
+    buildTypeConfig
+    platform
+    (_framework $ frameworkVersion)
+  frameworkPath platform =
+    platformBuildPath platform </> frameworkNameWithFrameworkExtension
+  projectName m = repoNameForFrameworkName m $ _framework $ frameworkVersion
+  versionFileName m = versionFileNameForProjectName $ projectName m
+
+
 
 -- | Given a `RepositoryMap` and either a list of `CartfileEntry` or a `PodBuilderInfo` creates a list of
 -- | `FrameworkVector`s. See `deriveFrameworkNameAndVersion` for details.
@@ -727,7 +769,7 @@ deleteFrameworkDirectory
   -> Bool -- ^ A flag controlling verbosity
   -> m ()
 deleteFrameworkDirectory buildTypeConfig fVector platform =
-  deleteDirectory $ temp_frameworkPath buildTypeConfig platform fVector
+  deleteDirectory $ _frameworkPath (_vectorPaths fVector) platform
 
 
 
@@ -740,7 +782,7 @@ deleteDSYMDirectory
   -> Bool -- ^ A flag controlling verbosity
   -> m ()
 deleteDSYMDirectory buildTypeConfig fVector platform =
-  deleteDirectory $ temp_dSYMPath buildTypeConfig platform fVector
+  deleteDirectory $ _dSYMPath (_vectorPaths fVector) platform
 
 
 
@@ -829,111 +871,3 @@ fromFile
 fromFile f action = do
   file <- liftIO (T.readFile f)
   withExceptT (("Could not parse " <> f <> ": ") <>) (action file)
-
-
-
--- Temporary FrameworkVector Helper Functions
--- TODO These should be moved to field functions on FrameworkVector, so they can be different per build type, but not need to get the build type as parameter
--- TODO remove "Upload" from function names
-
-temp_frameworkPath
-  :: BuildTypeSpecificConfiguration
-  -> TargetPlatform
-  -> FrameworkVector
-  -> FilePath
-temp_frameworkPath buildTypeConfig platform fVector =
-  temp_platformBuildPath buildTypeConfig platform fVector
-    </> temp_frameworkNameWithFrameworkExtension fVector
-
-temp_dSYMPath
-  :: BuildTypeSpecificConfiguration
-  -> TargetPlatform
-  -> FrameworkVector
-  -> FilePath
-temp_dSYMPath buildTypeConfig platform fVector =
-  temp_platformBuildPath buildTypeConfig platform fVector
-    </> (temp_frameworkNameWithFrameworkExtension fVector <> ".dSYM")
-
-temp_frameworkBinaryPath
-  :: BuildTypeSpecificConfiguration
-  -> TargetPlatform
-  -> FrameworkVector
-  -> FilePath
-temp_frameworkBinaryPath buildTypeConfig platform fVector =
-  temp_frameworkPath buildTypeConfig platform fVector
-    </> (_frameworkName $ _framework $ _vectorFrameworkVersion fVector)
-
-temp_bcSymbolMapPath
-  :: BuildTypeSpecificConfiguration
-  -> TargetPlatform
-  -> FrameworkVector
-  -> DwarfUUID
-  -> FilePath
-temp_bcSymbolMapPath buildTypeConfig platform fVector d =
-  temp_platformBuildPath buildTypeConfig platform fVector
-    </> bcsymbolmapNameFrom d
-
-temp_platformBuildPath
-  :: BuildTypeSpecificConfiguration
-  -> TargetPlatform
-  -> FrameworkVector
-  -> FilePath
-temp_platformBuildPath buildTypeConfig platform fVector =
-  artifactsBuildDirectoryForPlatform
-    buildTypeConfig
-    platform
-    (_framework $ _vectorFrameworkVersion fVector)
-
-temp_frameworkNameWithFrameworkExtension :: FrameworkVector -> String
-temp_frameworkNameWithFrameworkExtension fVector =
-  appendFrameworkExtensionTo (_framework $ _vectorFrameworkVersion fVector)
-
-temp_remoteDsymPath
-  :: TargetPlatform
-  -> InvertedRepositoryMap
-  -> FrameworkVector
-  -> FilePath
-temp_remoteDsymPath platform reverseRomeMap fVector
-  = remoteDsymPath platform
-                   reverseRomeMap
-                   (_framework $ _vectorFrameworkVersion fVector)
-                   (_frameworkVersion $ _vectorFrameworkVersion fVector)
-
-temp_remoteBcSymbolmapPath
-  :: TargetPlatform
-  -> InvertedRepositoryMap
-  -> FrameworkVector
-  -> DwarfUUID
-  -> FilePath
-temp_remoteBcSymbolmapPath platform reverseRomeMap fVector dwarfUUID
-  = remoteBcsymbolmapPath
-    dwarfUUID
-    platform
-    reverseRomeMap
-    (_framework $ _vectorFrameworkVersion fVector)
-    (_frameworkVersion $ _vectorFrameworkVersion fVector)
-
-
--- TODO Nothing for PodBuilder
-temp_versionFileLocalPath
-  :: InvertedRepositoryMap -> FrameworkVector -> Maybe FilePath
-temp_versionFileLocalPath reverseRomeMap fVector =
-  Just $ carthageBuildDirectory </> versionFileName
- where
-  projectName =
-    repoNameForFrameworkName reverseRomeMap
-      $ _framework
-      $ _vectorFrameworkVersion fVector
-  versionFileName = versionFileNameForProjectName projectName
-
--- TODO Nothing for PodBuilder
-temp_versionFileRemotePath
-  :: InvertedRepositoryMap -> FrameworkVector -> Maybe FilePath
-temp_versionFileRemotePath reverseRomeMap fVector =
-  Just $ remoteVersionFilePath' projectName version
- where
-  projectName =
-    repoNameForFrameworkName reverseRomeMap
-      $ _framework
-      $ _vectorFrameworkVersion fVector
-  version = (_frameworkVersion $ _vectorFrameworkVersion fVector)

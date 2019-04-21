@@ -4,20 +4,20 @@ import           Configuration                  ( carthageBuildDirectory
                                                 , artifactsBuildDirectoryForPlatform
                                                 )
 import           Control.Monad.Except
-import           Control.Monad.Trans.Resource (runResourceT)
-import qualified Data.ByteString.Lazy         as LBS
+import           Control.Monad.Trans.Resource   ( runResourceT )
+import qualified Data.ByteString.Lazy          as LBS
 import           Data.Carthage.TargetPlatform
 import qualified Data.Conduit                 as C (runConduit, (.|))
 import qualified Data.Conduit.Binary          as C (sinkLbs, sourceFile)
 import           Data.Romefile
 import           System.Directory
 import           System.FilePath
-import           Types                        hiding (version)
+import           Types                   hiding ( version )
 
 import           Caches.Common
 import           Control.Monad.Reader         (ReaderT, ask)
 import           Data.Either
-import           Data.Monoid                  ((<>))
+import           Data.Monoid                    ( (<>) )
 import           Utils
 import           Xcode.DWARF
 
@@ -71,7 +71,7 @@ getVersionFileFromLocalCache
   -> ExceptT String m LBS.ByteString
 getVersionFileFromLocalCache lCacheDir (CachePrefix prefix) reverseRomeMap fVector
   = do
-    case temp_versionFileRemotePath reverseRomeMap fVector of
+    case _versionFileRemotePath (_vectorPaths fVector) reverseRomeMap of
       Just versionFileRemotePath -> do
         versionFileExistsInLocalCache <-
           liftIO . doesFileExist $ versionFileLocalCachePath
@@ -128,10 +128,11 @@ getBcsymbolmapFromLocalCache lCacheDir (CachePrefix prefix) reverseRomeMap fVect
  where
   bcsymbolmapLocalCachePath cPrefix =
     lCacheDir
-      </> cPrefix </> temp_remoteBcSymbolmapPath platform
-                                     reverseRomeMap
-                                     fVector
-                                     dwarfUUID
+      </> cPrefix
+      </> _remoteBcSymbolmapPath (_vectorPaths fVector)
+                                 platform
+                                 reverseRomeMap
+                                 dwarfUUID
   --  TODO move to FrameworkVector?
   bcsymbolmapName =
     (_frameworkName $ _framework $ _vectorFrameworkVersion fVector)
@@ -149,8 +150,8 @@ getDSYMFromLocalCache
   -> FrameworkVector -- ^ The `FrameworkVector` identifying the dSYM
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
   -> ExceptT String m LBS.ByteString
-getDSYMFromLocalCache lCacheDir (CachePrefix prefix) reverseRomeMap fVector platform =
-  do
+getDSYMFromLocalCache lCacheDir (CachePrefix prefix) reverseRomeMap fVector platform
+  = do
     let finalDSYMLocalPath = dSYMLocalCachePath
     dSYMExistsInLocalCache <- liftIO . doesFileExist $ finalDSYMLocalPath
     if dSYMExistsInLocalCache
@@ -170,7 +171,8 @@ getDSYMFromLocalCache lCacheDir (CachePrefix prefix) reverseRomeMap fVector plat
   -- TODO move to FrameworkVector?
   dSYMLocalCachePath =
     lCacheDir
-      </> prefix </> temp_remoteDsymPath platform reverseRomeMap fVector
+      </> prefix
+      </> _remoteDsymPath (_vectorPaths fVector) platform reverseRomeMap
   dSYMName =
     (_frameworkName $ _framework $ _vectorFrameworkVersion fVector) <> ".dSYM"
 
@@ -208,7 +210,7 @@ getAndUnzipBcsymbolmapFromLocalCache buildTypeConfig lCacheDir reverseRomeMap fV
     lCacheDir
       </> prefix
       </> _remoteFrameworkPath (_vectorPaths fVector) platform reverseRomeMap
-  bcsymbolmapPath = temp_bcSymbolMapPath buildTypeConfig platform fVector
+  bcsymbolmapPath = _bcSymbolMapPath (_vectorPaths fVector) platform
   -- TODO move to FrameworkVector?
   symbolmapName =
     (_frameworkName $ _framework $ _vectorFrameworkVersion fVector)
@@ -235,7 +237,7 @@ getAndUnzipBcsymbolmapsFromLocalCache buildTypeConfig lCacheDir reverseRomeMap f
     let sayFunc = if verbose then sayLnWithTime else sayLn
 
     dwarfUUIDs <- dwarfUUIDsFrom
-      $ temp_frameworkBinaryPath buildTypeConfig platform fVector
+      $ _frameworkBinaryPath (_vectorPaths fVector) platform
     mapM_
       (\dwarfUUID ->
         getAndUnzipBcsymbolmapFromLocalCache buildTypeConfig
@@ -264,8 +266,8 @@ getAndUnzipBcsymbolmapsFromLocalCache'
        ()
 getAndUnzipBcsymbolmapsFromLocalCache' buildTypeConfig lCacheDir reverseRomeMap fVector platform
   = when (vectorSupportsPlatform fVector platform) $ do
-    dwarfUUIDs <- withExceptT (const ErrorGettingDwarfUUIDs) $ dwarfUUIDsFrom
-      (temp_frameworkBinaryPath buildTypeConfig platform fVector)
+    dwarfUUIDs <- withExceptT (const ErrorGettingDwarfUUIDs)
+      $ dwarfUUIDsFrom (_frameworkBinaryPath (_vectorPaths fVector) platform)
     eitherDwarfUUIDsOrSucces <- forM
       dwarfUUIDs
       (\dwarfUUID -> lift $ runExceptT
@@ -355,7 +357,7 @@ getAndUnzipFrameworkFromLocalCache buildTypeConfig lCacheDir reverseRomeMap fVec
     (_framework $ _vectorFrameworkVersion fVector)
     (_frameworkVersion $ _vectorFrameworkVersion fVector)
   frameworkExecutablePath =
-    temp_frameworkBinaryPath buildTypeConfig platform fVector
+    _frameworkBinaryPath (_vectorPaths fVector) platform
 
 
 
@@ -426,8 +428,8 @@ getAndSaveVersionFileFromLocalCache
   -> ExceptT String (ReaderT (CachePrefix, Bool) m) ()
 getAndSaveVersionFileFromLocalCache lCacheDir reverseRomeMap fVector = do
   case
-      ( temp_versionFileLocalPath reverseRomeMap fVector
-      , temp_versionFileRemotePath reverseRomeMap fVector
+      ( _versionFileLocalPath (_vectorPaths fVector) reverseRomeMap 
+      , _versionFileRemotePath (_vectorPaths fVector) reverseRomeMap
       )
     of
       (Just versionFileLocalPath, Just versionFileRemotePath) -> do

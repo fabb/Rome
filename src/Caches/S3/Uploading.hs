@@ -61,7 +61,8 @@ uploadDsymToS3 dSYMArchive s3BucketName reverseRomeMap fVector platform =
     withReaderT (const (env, verbose)) $ uploadBinary
       s3BucketName
       (Zip.fromArchive dSYMArchive)
-      (prefix </> temp_remoteDsymPath platform reverseRomeMap fVector)
+      (prefix </> _remoteDsymPath (_vectorPaths fVector) platform reverseRomeMap
+      )
       verboseDebugName
  where
   -- TODO move to FrameworkVector?
@@ -87,7 +88,10 @@ uploadBcsymbolmapToS3 dwarfUUID dwarfArchive s3BucketName reverseRomeMap fVector
       s3BucketName
       (Zip.fromArchive dwarfArchive)
       (   prefix
-      </> temp_remoteBcSymbolmapPath platform reverseRomeMap fVector dwarfUUID
+      </> _remoteBcSymbolmapPath (_vectorPaths fVector)
+                                 platform
+                                 reverseRomeMap
+                                 dwarfUUID
       )
       verboseDebugName
  where
@@ -110,8 +114,8 @@ uploadVersionFileToS3
 uploadVersionFileToS3 s3BucketName versionFileContent reverseRomeMap fVector =
   do
     case
-        ( temp_versionFileLocalPath reverseRomeMap fVector
-        , temp_versionFileRemotePath reverseRomeMap fVector
+        ( _versionFileLocalPath (_vectorPaths fVector) reverseRomeMap
+        , _versionFileRemotePath (_vectorPaths fVector) reverseRomeMap
         )
       of
         (Just versionFileLocalPath, Just versionFileRemotePath) -> do
