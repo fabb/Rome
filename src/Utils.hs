@@ -385,16 +385,6 @@ remoteVersionFilePath' projectName version =
 
 
 
--- | Builds a `String` representing the path to the Carthage/PodBuilder build directory for
--- | a combination of `TargetPlatform` and `Framework` representing
--- | the path to the framework's bundle
-frameworkBuildBundleForPlatform
-  :: BuildTypeSpecificConfiguration -> TargetPlatform -> Framework -> String
-frameworkBuildBundleForPlatform b p f =
-  artifactsBuildDirectoryForPlatform b p f </> appendFrameworkExtensionTo f
-
-
-
 -- | Constructs a `RepositoryMap` from a list of `RomefileEntry`s.
 -- | The keys are `ProjectName`s.
 toRepositoryMap :: [RomefileEntry] -> RepositoryMap
@@ -463,12 +453,11 @@ formattedPlatformAvailability p = availabilityPrefix p ++ platformName p
 createFrameworkVectorsForCurrentFrameworkVersions
   :: BuildTypeSpecificConfiguration -> [FrameworkVersion] -> [FrameworkVector]
 createFrameworkVectorsForCurrentFrameworkVersions buildTypeConfig =
-  map $ tempWrapFrameworkVersionInFrameworkVector buildTypeConfig
+  map $ createFrameworkVectorForFrameworkVersion buildTypeConfig
 
--- TODO this is a temporary method used until everything is migrated to FrameworkVector
-tempWrapFrameworkVersionInFrameworkVector
+createFrameworkVectorForFrameworkVersion
   :: BuildTypeSpecificConfiguration -> FrameworkVersion -> FrameworkVector
-tempWrapFrameworkVersionInFrameworkVector buildTypeConfig frameworkVersion =
+createFrameworkVectorForFrameworkVersion buildTypeConfig frameworkVersion =
   FrameworkVector
     { _vectorFrameworkVersion = frameworkVersion
     , _vectorPaths            = FrameworkVectorPaths
@@ -483,11 +472,12 @@ tempWrapFrameworkVersionInFrameworkVector buildTypeConfig frameworkVersion =
       , _bcSymbolMapPath       = (\p d ->
                                    platformBuildPath p </> bcsymbolmapNameFrom d
                                  )
-      , _versionFileLocalPath  = (\m ->
-        -- TODO Nothing for PodBuilder
-                                   Just
-                                     $   carthageBuildDirectory
-                                     </> versionFileName m
+      , _versionFileLocalPath  = (\m -> case buildTypeConfig of
+                                   CarthageConfig _ ->
+                                     Just
+                                       $   carthageBuildDirectory
+                                       </> versionFileName m
+                                   PodBuilderConfig _ -> Nothing
                                  )
       , _remoteFrameworkPath   = (\p m ->
                                    remoteFrameworkPath p m framework version
@@ -495,15 +485,16 @@ tempWrapFrameworkVersionInFrameworkVector buildTypeConfig frameworkVersion =
       , _remoteDsymPath        = (\p m -> remoteDsymPath p m framework version)
       , _remoteBcSymbolmapPath = (\p m d -> remoteBcsymbolmapPath d
                                                                   p
-                                   m
+                                                                  m
                                                                   framework
                                                                   version
                                  )
-      , _versionFileRemotePath = (\m ->
-          -- TODO Nothing for PodBuilder
-                                        Just $ remoteVersionFilePath'
-                                   (projectName m)
-                                   version
+      , _versionFileRemotePath = (\m -> case buildTypeConfig of
+                                   CarthageConfig _ ->
+                                     Just $ remoteVersionFilePath'
+                                       (projectName m)
+                                       version
+                                   PodBuilderConfig _ -> Nothing
                                  )
       }
     }
@@ -528,7 +519,7 @@ tempWrapFrameworkVersionInFrameworkVector buildTypeConfig frameworkVersion =
 deriveFrameworkVectors
   :: RepositoryMap -> BuildTypeSpecificConfiguration -> [FrameworkVector]
 deriveFrameworkVectors romeMap buildTypeConfig =
-  map (tempWrapFrameworkVersionInFrameworkVector buildTypeConfig)
+  map (createFrameworkVectorForFrameworkVersion buildTypeConfig)
     $ deriveFrameworkNamesAndVersion romeMap buildTypeConfig
 
 -- | Given a `RepositoryMap` and either a list of `CartfileEntry` or a `PodBuilderInfo` creates a list of
@@ -536,7 +527,6 @@ deriveFrameworkVectors romeMap buildTypeConfig =
 deriveFrameworkNamesAndVersion
   :: RepositoryMap -> BuildTypeSpecificConfiguration -> [FrameworkVersion]
 deriveFrameworkNamesAndVersion romeMap buildTypeConfig =
-  -- TODO pull the buildTypeConfig up into deriveFrameworkVectors 
   case buildTypeConfig of
     CarthageConfig { _cartfileEntries = cartfileEntries } ->
       deriveFrameworkNamesAndVersionCarthage romeMap cartfileEntries
