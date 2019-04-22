@@ -361,7 +361,6 @@ getAndUnzipDSYMFromLocalCache
 getAndUnzipDSYMFromLocalCache lCacheDir reverseRomeMap fVector platform
   = when (vectorSupportsPlatform fVector platform) $ do
     (cachePrefix@(CachePrefix prefix), verbose) <- ask
-    let finalDSYMLocalPath = dSYMLocalCachePath prefix
     let sayFunc            = if verbose then sayLnWithTime else sayLn
     binary <- getDSYMFromLocalCache lCacheDir
                                     cachePrefix
@@ -370,26 +369,25 @@ getAndUnzipDSYMFromLocalCache lCacheDir reverseRomeMap fVector platform
                                     platform
     sayFunc
       $  "Found "
-      <> dSYMName
+      <> verboseDSYMDebugName
       <> " in local cache at: "
-      <> finalDSYMLocalPath
+      <> verboseFinalDSYMLocalDebugPath prefix
     deleteDSYMDirectory fVector platform verbose
-    unzipBinary binary verboseFrameworkDebugName dSYMZipName verbose
+    unzipBinary binary verboseFrameworkDebugName verboseDSYMZipDebugName verbose
  where
   -- TODO move to FrameworkVector?
   dSYMLocalCachePath cPrefix = lCacheDir </> cPrefix </> remotedSYMUploadPath
-  remotedSYMUploadPath = remoteDsymPath
+  remotedSYMUploadPath = _remoteDsymPath (_vectorPaths fVector)
     platform
     reverseRomeMap
+  verboseDSYMZipDebugName = dSYMArchiveName
     (_framework $ _vectorFrameworkVersion fVector)
     (_frameworkVersion $ _vectorFrameworkVersion fVector)
-  dSYMZipName = dSYMArchiveName
-    (_framework $ _vectorFrameworkVersion fVector)
-    (_frameworkVersion $ _vectorFrameworkVersion fVector)
-  dSYMName =
+  verboseDSYMDebugName =
     (_frameworkName $ _framework $ _vectorFrameworkVersion fVector) <> ".dSYM"
   verboseFrameworkDebugName =
     (_frameworkName $ _framework $ _vectorFrameworkVersion fVector)
+  verboseFinalDSYMLocalDebugPath prefix = dSYMLocalCachePath prefix
 
 
 

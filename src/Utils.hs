@@ -334,30 +334,30 @@ filterRomeFileEntriesByPlatforms lhs rhs =
 
 
 
--- | Builds a string representing the remote path to a framework zip archive.
-remoteFrameworkPath
+-- | Builds a string representing the remote path to a framework zip archive for Carthage.
+remoteFrameworkPathCarthage
   :: TargetPlatform -> InvertedRepositoryMap -> Framework -> Version -> String
-remoteFrameworkPath p r f v =
+remoteFrameworkPathCarthage p r f v =
   remoteCacheDirectory p r f ++ frameworkArchiveName f v
 
 
 
--- | Builds a `String` representing the remote path to a dSYM zip archive
-remoteDsymPath
+-- | Builds a `String` representing the remote path to a dSYM zip archive  for Carthage
+remoteDsymPathCarthage
   :: TargetPlatform -> InvertedRepositoryMap -> Framework -> Version -> String
-remoteDsymPath p r f v = remoteCacheDirectory p r f ++ dSYMArchiveName f v
+remoteDsymPathCarthage p r f v = remoteCacheDirectory p r f ++ dSYMArchiveName f v
 
 
 
--- | Builds a `String` representing the remote path to a bcsymbolmap zip archive
-remoteBcsymbolmapPath
+-- | Builds a `String` representing the remote path to a bcsymbolmap zip archive for Carthage
+remoteBcsymbolmapPathCarthage
   :: DwarfUUID
   -> TargetPlatform
   -> InvertedRepositoryMap
   -> Framework
   -> Version
   -> String
-remoteBcsymbolmapPath d p r f v =
+remoteBcsymbolmapPathCarthage d p r f v =
   remoteCacheDirectory p r f ++ bcsymbolmapArchiveName d v
 
 
@@ -466,10 +466,12 @@ createFrameworkVectorForFrameworkVersion buildTypeConfig frameworkVersion =
                                    frameworkPath p </> _frameworkName framework
                                  )
       , _dSYMPath              = (\p ->
+                                   -- TODO different for PodBuilder
                                    platformBuildPath p
                                      </> (frameworkNameWithFrameworkExtension <> ".dSYM")
                                  )
       , _bcSymbolMapPath       = (\p d ->
+                                   -- TODO Nothing for PodBuilder
                                    platformBuildPath p </> bcsymbolmapNameFrom d
                                  )
       , _versionFileLocalPath  = (\m -> case buildTypeConfig of
@@ -480,10 +482,16 @@ createFrameworkVectorForFrameworkVersion buildTypeConfig frameworkVersion =
                                    PodBuilderConfig _ -> Nothing
                                  )
       , _remoteFrameworkPath   = (\p m ->
-                                   remoteFrameworkPath p m framework version
+                                   -- TODO for PodBuilder use swift version as well as part of the remote path
+                                   remoteFrameworkPathCarthage p m framework version
                                  )
-      , _remoteDsymPath        = (\p m -> remoteDsymPath p m framework version)
-      , _remoteBcSymbolmapPath = (\p m d -> remoteBcsymbolmapPath d
+      , _remoteDsymPath        = (\p m -> 
+                                   -- TODO different for PodBuilder
+                                   remoteDsymPathCarthage p m framework version
+                                 )
+      , _remoteBcSymbolmapPath = (\p m d ->
+                                   -- TODO Nothing for PodBuilder
+                                            remoteBcsymbolmapPathCarthage d
                                                                   p
                                                                   m
                                                                   framework
