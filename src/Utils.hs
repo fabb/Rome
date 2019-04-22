@@ -340,12 +340,27 @@ remoteFrameworkPathCarthage
 remoteFrameworkPathCarthage p r f v =
   remoteCacheDirectory p r f ++ frameworkArchiveName f v
 
+-- | Builds a string representing the remote path to a framework zip archive for PodBuilder.
+remoteFrameworkPathPodBuilder
+  :: TargetPlatform -> InvertedRepositoryMap -> Framework -> Version -> String
+remoteFrameworkPathPodBuilder p r f v =
+  -- TODO correct path
+  remoteCacheDirectory p r f ++ frameworkArchiveName f v
+
 
 
 -- | Builds a `String` representing the remote path to a dSYM zip archive  for Carthage
 remoteDsymPathCarthage
   :: TargetPlatform -> InvertedRepositoryMap -> Framework -> Version -> String
-remoteDsymPathCarthage p r f v = remoteCacheDirectory p r f ++ dSYMArchiveName f v
+remoteDsymPathCarthage p r f v =
+  remoteCacheDirectory p r f ++ dSYMArchiveName f v
+
+-- | Builds a `String` representing the remote path to a dSYM zip archive  for PodBuilder
+remoteDsymPathPodBuilder
+  :: TargetPlatform -> InvertedRepositoryMap -> Framework -> Version -> String
+remoteDsymPathPodBuilder p r f v =
+  -- TODO correct path
+  remoteCacheDirectory p r f ++ dSYMArchiveName f v
 
 
 
@@ -358,6 +373,18 @@ remoteBcsymbolmapPathCarthage
   -> Version
   -> String
 remoteBcsymbolmapPathCarthage d p r f v =
+  remoteCacheDirectory p r f ++ bcsymbolmapArchiveName d v
+
+-- | Builds a `String` representing the remote path to a bcsymbolmap zip archive for PodBuilder
+remoteBcsymbolmapPathPodBuilder
+  :: DwarfUUID
+  -> TargetPlatform
+  -> InvertedRepositoryMap
+  -> Framework
+  -> Version
+  -> String
+remoteBcsymbolmapPathPodBuilder d p r f v =
+  -- TODO correct path
   remoteCacheDirectory p r f ++ bcsymbolmapArchiveName d v
 
 
@@ -465,14 +492,21 @@ createFrameworkVectorForFrameworkVersion buildTypeConfig frameworkVersion =
       , _frameworkBinaryPath   = (\p ->
                                    frameworkPath p </> _frameworkName framework
                                  )
-      , _dSYMPath              = (\p ->
-                                   -- TODO different for PodBuilder
-                                   platformBuildPath p
-                                     </> (frameworkNameWithFrameworkExtension <> ".dSYM")
+      , _dSYMPath              = (\p -> case buildTypeConfig of
+                                   CarthageConfig _ ->
+                                     platformBuildPath p
+                                       </> (frameworkNameWithFrameworkExtension <> ".dSYM")
+                                   PodBuilderConfig _ ->
+                                     -- TODO correct path
+                                     platformBuildPath p
+                                       </> (frameworkNameWithFrameworkExtension <> ".dSYM")
                                  )
-      , _bcSymbolMapPath       = (\p d ->
-                                   -- TODO Nothing for PodBuilder
-                                   platformBuildPath p </> bcsymbolmapNameFrom d
+      , _bcSymbolMapPath       = (\p d -> case buildTypeConfig of
+                                   CarthageConfig _ ->
+                                     platformBuildPath p </> bcsymbolmapNameFrom d
+                                   PodBuilderConfig _ ->
+                                     -- TODO correct path
+                                     platformBuildPath p </> bcsymbolmapNameFrom d
                                  )
       , _versionFileLocalPath  = (\m -> case buildTypeConfig of
                                    CarthageConfig _ ->
@@ -481,21 +515,37 @@ createFrameworkVectorForFrameworkVersion buildTypeConfig frameworkVersion =
                                        </> versionFileName m
                                    PodBuilderConfig _ -> Nothing
                                  )
-      , _remoteFrameworkPath   = (\p m ->
-                                   -- TODO for PodBuilder use swift version as well as part of the remote path
-                                   remoteFrameworkPathCarthage p m framework version
+      , _remoteFrameworkPath   = (\p m -> case buildTypeConfig of
+                                   CarthageConfig _ ->
+                                     remoteFrameworkPathCarthage p
+                                                                 m
+                                                                 framework
+                                                                 version
+                                   PodBuilderConfig _ ->
+                                     remoteFrameworkPathPodBuilder p
+                                                                   m
+                                                                   framework
+                                                                   version
                                  )
-      , _remoteDsymPath        = (\p m -> 
-                                   -- TODO different for PodBuilder
-                                   remoteDsymPathCarthage p m framework version
+      , _remoteDsymPath        = (\p m -> case buildTypeConfig of
+                                   CarthageConfig _ ->
+                                     remoteDsymPathCarthage p m framework version
+                                   PodBuilderConfig _ ->
+                                     remoteDsymPathPodBuilder p m framework version
                                  )
-      , _remoteBcSymbolmapPath = (\p m d ->
-                                   -- TODO Nothing for PodBuilder
-                                            remoteBcsymbolmapPathCarthage d
-                                                                  p
-                                                                  m
-                                                                  framework
-                                                                  version
+      , _remoteBcSymbolmapPath = (\p m d -> case buildTypeConfig of
+                                   CarthageConfig _ ->
+                                     remoteBcsymbolmapPathCarthage d
+                                                                   p
+                                                                   m
+                                                                   framework
+                                                                   version
+                                   PodBuilderConfig _ ->
+                                     remoteBcsymbolmapPathPodBuilder d
+                                                                     p
+                                                                     m
+                                                                     framework
+                                                                     version
                                  )
       , _versionFileRemotePath = (\m -> case buildTypeConfig of
                                    CarthageConfig _ ->
