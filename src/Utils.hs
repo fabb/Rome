@@ -8,6 +8,7 @@ module Utils where
 import qualified Codec.Archive.Zip             as Zip
 import           Configuration                  ( artifactsBuildDirectoryForPlatform
                                                 , carthageBuildDirectory
+                                                , podBuilderDSYMDirectory
                                                 )
 import           Control.Applicative            ( (<|>) )
 import           Control.Arrow                  ( left )
@@ -497,8 +498,9 @@ createFrameworkVectorForFrameworkVersion buildTypeConfig frameworkVersion =
                                      platformBuildPath p
                                        </> (frameworkNameWithFrameworkExtension <> ".dSYM")
                                    PodBuilderConfig _ ->
-                                     -- TODO correct path
-                                     platformBuildPath p
+                                     podBuilderDSYMDirectory
+                                      -- TODO PodBuilder builds separate dSYMs for iphonesimulator and iphoneos, but currently Rome can only cache one of the two
+                                       </> "iphonesimulator"
                                        </> (frameworkNameWithFrameworkExtension <> ".dSYM")
                                  )
       , _bcSymbolMapPath       = (\p d -> case buildTypeConfig of

@@ -89,6 +89,9 @@ carthageBuildDirectory = "Carthage" </> "Build"
 podBuilderBuildDirectory :: FilePath
 podBuilderBuildDirectory = "Frameworks" </> "Rome"
 
+podBuilderDSYMDirectory :: FilePath
+podBuilderDSYMDirectory = "Frameworks" </> "dSYM"
+
 artifactsBuildDirectoryForPlatform
   :: BuildTypeSpecificConfiguration -> TargetPlatform -> Framework -> FilePath
 artifactsBuildDirectoryForPlatform buildTypeConfig = case buildTypeConfig of
