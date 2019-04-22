@@ -1,8 +1,5 @@
 module Caches.Local.Downloading where
 
-import           Configuration                  ( carthageBuildDirectory
-                                                , artifactsBuildDirectoryForPlatform
-                                                )
 import           Control.Monad.Except
 import           Control.Monad.Trans.Resource   ( runResourceT )
 import qualified Data.ByteString.Lazy          as LBS
@@ -181,14 +178,13 @@ getDSYMFromLocalCache lCacheDir (CachePrefix prefix) reverseRomeMap fVector plat
 -- | Retrieves a bcsymbolmap file from a local cache and unzips the contents
 getAndUnzipBcsymbolmapFromLocalCache
   :: MonadIO m
-  => BuildTypeSpecificConfiguration
-  -> FilePath -- ^ The cache definition
+  => FilePath -- ^ The cache definition
   -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the dSYM in the cache
   -> FrameworkVector -- ^ The `FrameworkVector` identifying the Framework
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
   -> DwarfUUID
   -> ExceptT String (ReaderT (CachePrefix, Bool) m) ()
-getAndUnzipBcsymbolmapFromLocalCache buildTypeConfig lCacheDir reverseRomeMap fVector platform dwarfUUID
+getAndUnzipBcsymbolmapFromLocalCache lCacheDir reverseRomeMap fVector platform dwarfUUID
   = when (vectorSupportsPlatform fVector platform) $ do
     (cachePrefix@(CachePrefix prefix), verbose) <- ask
     let sayFunc = if verbose then sayLnWithTime else sayLn
@@ -225,13 +221,12 @@ getAndUnzipBcsymbolmapFromLocalCache buildTypeConfig lCacheDir reverseRomeMap fV
 -- | Retrieves all the bcsymbolmap files from a local cache and unzip the contents
 getAndUnzipBcsymbolmapsFromLocalCache
   :: MonadIO m
-  => BuildTypeSpecificConfiguration
-  -> FilePath -- ^ The cache definition
+  => FilePath -- ^ The cache definition
   -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the dSYM in the cache
   -> FrameworkVector -- ^ The `FrameworkVector` identifying the Framework
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
   -> ExceptT String (ReaderT (CachePrefix, Bool) m) ()
-getAndUnzipBcsymbolmapsFromLocalCache buildTypeConfig lCacheDir reverseRomeMap fVector platform
+getAndUnzipBcsymbolmapsFromLocalCache lCacheDir reverseRomeMap fVector platform
   = when (vectorSupportsPlatform fVector platform) $ do
     (_, verbose) <- ask
     let sayFunc = if verbose then sayLnWithTime else sayLn
@@ -240,8 +235,7 @@ getAndUnzipBcsymbolmapsFromLocalCache buildTypeConfig lCacheDir reverseRomeMap f
       $ _frameworkBinaryPath (_vectorPaths fVector) platform
     mapM_
       (\dwarfUUID ->
-        getAndUnzipBcsymbolmapFromLocalCache buildTypeConfig
-                                             lCacheDir
+        getAndUnzipBcsymbolmapFromLocalCache lCacheDir
                                              reverseRomeMap
                                              fVector
                                              platform
@@ -255,8 +249,7 @@ getAndUnzipBcsymbolmapsFromLocalCache buildTypeConfig lCacheDir reverseRomeMap f
 -- | Retrieves all the bcsymbolmap files from a local cache and unzip the contents
 getAndUnzipBcsymbolmapsFromLocalCache'
   :: MonadIO m
-  => BuildTypeSpecificConfiguration
-  -> FilePath -- ^ The cache definition
+  => FilePath -- ^ The cache definition
   -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the dSYM in the cache
   -> FrameworkVector -- ^ The `FrameworkVector` identifying the Framework
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
@@ -264,7 +257,7 @@ getAndUnzipBcsymbolmapsFromLocalCache'
        DWARFOperationError
        (ReaderT (CachePrefix, Bool) m)
        ()
-getAndUnzipBcsymbolmapsFromLocalCache' buildTypeConfig lCacheDir reverseRomeMap fVector platform
+getAndUnzipBcsymbolmapsFromLocalCache' lCacheDir reverseRomeMap fVector platform
   = when (vectorSupportsPlatform fVector platform) $ do
     dwarfUUIDs <- withExceptT (const ErrorGettingDwarfUUIDs)
       $ dwarfUUIDsFrom (_frameworkBinaryPath (_vectorPaths fVector) platform)
@@ -272,8 +265,7 @@ getAndUnzipBcsymbolmapsFromLocalCache' buildTypeConfig lCacheDir reverseRomeMap 
       dwarfUUIDs
       (\dwarfUUID -> lift $ runExceptT
         ( withExceptT (\e -> (dwarfUUID, e))
-        $ getAndUnzipBcsymbolmapFromLocalCache buildTypeConfig
-                                               lCacheDir
+        $ getAndUnzipBcsymbolmapFromLocalCache lCacheDir
                                                reverseRomeMap
                                                fVector
                                                platform
@@ -290,29 +282,27 @@ getAndUnzipBcsymbolmapsFromLocalCache' buildTypeConfig lCacheDir reverseRomeMap 
 -- | Retrieves a Frameworks and the corresponding dSYMs from a local cache for given `TargetPlatform`s, then unzips the contents
 getAndUnzipFrameworksAndArtifactsFromLocalCache
   :: MonadIO m
-  => BuildTypeSpecificConfiguration
-  -> FilePath -- ^ The cache definition
+  => FilePath -- ^ The cache definition
   -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the Framework in the cache
   -> [FrameworkVector] -- ^ The a list of `FrameworkVector` identifying the Frameworks and dSYMs
   -> [TargetPlatform] -- ^ A list of `TargetPlatform`s to limit the operation to
   -> [ExceptT String (ReaderT (CachePrefix, Bool) m) ()]
-getAndUnzipFrameworksAndArtifactsFromLocalCache buildTypeConfig lCacheDir reverseRomeMap fVectors platforms
+getAndUnzipFrameworksAndArtifactsFromLocalCache lCacheDir reverseRomeMap fVectors platforms
   = concatMap getAndUnzipFramework platforms
     <> concatMap getAndUnzipBcsymbolmaps platforms
     <> concatMap getAndUnzipDSYM         platforms
  where
   getAndUnzipFramework = mapM
-    (getAndUnzipFrameworkFromLocalCache buildTypeConfig lCacheDir reverseRomeMap
+    (getAndUnzipFrameworkFromLocalCache lCacheDir reverseRomeMap
     )
     fVectors
   getAndUnzipBcsymbolmaps = mapM
-    (getAndUnzipBcsymbolmapsFromLocalCache buildTypeConfig
-                                           lCacheDir
+    (getAndUnzipBcsymbolmapsFromLocalCache lCacheDir
                                            reverseRomeMap
     )
     fVectors
   getAndUnzipDSYM = mapM
-    (getAndUnzipDSYMFromLocalCache buildTypeConfig lCacheDir reverseRomeMap)
+    (getAndUnzipDSYMFromLocalCache lCacheDir reverseRomeMap)
     fVectors
 
 
@@ -320,13 +310,12 @@ getAndUnzipFrameworksAndArtifactsFromLocalCache buildTypeConfig lCacheDir revers
 -- | Retrieves a Framework from a local cache and unzip the contents
 getAndUnzipFrameworkFromLocalCache
   :: MonadIO m
-  => BuildTypeSpecificConfiguration
-  -> FilePath -- ^ The cache definition
+  => FilePath -- ^ The cache definition
   -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the Framework in the cache
   -> FrameworkVector -- ^ The `FrameworkVector` identifying the Framework
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
   -> ExceptT String (ReaderT (CachePrefix, Bool) m) ()
-getAndUnzipFrameworkFromLocalCache buildTypeConfig lCacheDir reverseRomeMap fVector platform
+getAndUnzipFrameworkFromLocalCache lCacheDir reverseRomeMap fVector platform
   = when (vectorSupportsPlatform fVector platform) $ do
     (cachePrefix@(CachePrefix prefix), verbose) <- ask
     let sayFunc = if verbose then sayLnWithTime else sayLn
@@ -340,7 +329,7 @@ getAndUnzipFrameworkFromLocalCache buildTypeConfig lCacheDir reverseRomeMap fVec
       <> verboseFrameworkDebugName
       <> " in local cache at: "
       <> frameworkLocalCachePath prefix
-    deleteFrameworkDirectory buildTypeConfig fVector platform verbose
+    deleteFrameworkDirectory fVector platform verbose
     unzipBinary binary verboseFrameworkDebugName frameworkZipName verbose
       <* ifExists
            frameworkExecutablePath
@@ -364,13 +353,12 @@ getAndUnzipFrameworkFromLocalCache buildTypeConfig lCacheDir reverseRomeMap fVec
 -- | Retrieves a dSYM from a local cache yy and unzip the contents
 getAndUnzipDSYMFromLocalCache
   :: MonadIO m
-  => BuildTypeSpecificConfiguration
-  -> FilePath -- ^ The cache definition
+  => FilePath -- ^ The cache definition
   -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the dSYM in the cache
   -> FrameworkVector -- ^ The `FrameworkVector` identifying the Framework
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
   -> ExceptT String (ReaderT (CachePrefix, Bool) m) ()
-getAndUnzipDSYMFromLocalCache buildTypeConfig lCacheDir reverseRomeMap fVector platform
+getAndUnzipDSYMFromLocalCache lCacheDir reverseRomeMap fVector platform
   = when (vectorSupportsPlatform fVector platform) $ do
     (cachePrefix@(CachePrefix prefix), verbose) <- ask
     let finalDSYMLocalPath = dSYMLocalCachePath prefix
@@ -385,7 +373,7 @@ getAndUnzipDSYMFromLocalCache buildTypeConfig lCacheDir reverseRomeMap fVector p
       <> dSYMName
       <> " in local cache at: "
       <> finalDSYMLocalPath
-    deleteDSYMDirectory buildTypeConfig fVector platform verbose
+    deleteDSYMDirectory fVector platform verbose
     unzipBinary binary verboseFrameworkDebugName dSYMZipName verbose
  where
   -- TODO move to FrameworkVector?

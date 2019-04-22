@@ -530,7 +530,6 @@ deriveFrameworkVectors
 deriveFrameworkVectors romeMap buildTypeConfig =
   map (tempWrapFrameworkVersionInFrameworkVector buildTypeConfig)
     $ deriveFrameworkNamesAndVersion romeMap buildTypeConfig
-  -- TODO add fields for paths to FrameworkVector and create them here
 
 -- | Given a `RepositoryMap` and either a list of `CartfileEntry` or a `PodBuilderInfo` creates a list of
 -- | `FrameworkVersion`s. See `deriveFrameworkNameAndVersion` for details.
@@ -763,12 +762,11 @@ deleteFile path verbose = do
 -- | Deletes a Framework from the Build folder
 deleteFrameworkDirectory
   :: MonadIO m
-  => BuildTypeSpecificConfiguration
-  -> FrameworkVector -- ^ The `FrameworkVector` identifying the Framework to delete
+  => FrameworkVector -- ^ The `FrameworkVector` identifying the Framework to delete
   -> TargetPlatform -- ^ The `TargetPlatform` to restrict this operation to
   -> Bool -- ^ A flag controlling verbosity
   -> m ()
-deleteFrameworkDirectory buildTypeConfig fVector platform =
+deleteFrameworkDirectory fVector platform =
   deleteDirectory $ _frameworkPath (_vectorPaths fVector) platform
 
 
@@ -776,12 +774,11 @@ deleteFrameworkDirectory buildTypeConfig fVector platform =
 -- | Deletes a dSYM from the Build folder
 deleteDSYMDirectory
   :: MonadIO m
-  => BuildTypeSpecificConfiguration
-  -> FrameworkVector -- ^ The `FrameworkVector` identifying the dSYM to delete
+  => FrameworkVector -- ^ The `FrameworkVector` identifying the dSYM to delete
   -> TargetPlatform -- ^ The `TargetPlatform` to restrict this operation to
   -> Bool -- ^ A flag controlling verbosity
   -> m ()
-deleteDSYMDirectory buildTypeConfig fVector platform =
+deleteDSYMDirectory fVector platform =
   deleteDirectory $ _dSYMPath (_vectorPaths fVector) platform
 
 

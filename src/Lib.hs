@@ -233,8 +233,7 @@ runUDCCommand command absoluteRomefilePath verbose romeVersion = do
       <> romeVersionToString vers
       <> noColorControlSequence
 
-type FlowFunction  = BuildTypeSpecificConfiguration
-  -> Maybe S3.BucketName -- ^ Just an S3 Bucket name or Nothing
+type FlowFunction  = Maybe S3.BucketName -- ^ Just an S3 Bucket name or Nothing
   -> Maybe FilePath -- ^ Just the path to the local cache or Nothing
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
   -> [FrameworkVector] -- ^ A list of `FrameworkVector` from which to derive Frameworks, dSYMs and .version files
@@ -288,7 +287,6 @@ performWithDefaultFlow flowFunc buildTypeConfig (verbose, noIgnoreFlag, skipLoca
         in  do
               runReaderT
                 (flowFunc
-                  buildTypeConfig
                   mS3BucketName
                   mlCacheDir
                   reverseRepositoryMap
@@ -313,7 +311,6 @@ performWithDefaultFlow flowFunc buildTypeConfig (verbose, noIgnoreFlag, skipLoca
                       toInvertedRepositoryMap filteredCurrentMapEntries
                 runReaderT
                   (flowFunc
-                    buildTypeConfig
                     mS3BucketName
                     mlCacheDir
                     currentInvertedMap
@@ -342,8 +339,7 @@ performWithDefaultFlow flowFunc buildTypeConfig (verbose, noIgnoreFlag, skipLoca
             currentInvertedMap =
               toInvertedRepositoryMap filteredCurrentMapEntries
         runReaderT
-          (flowFunc buildTypeConfig
-                    mS3BucketName
+          (flowFunc mS3BucketName
                     mlCacheDir
                     (reverseRepositoryMap <> currentInvertedMap)
                     frameworkVectors
@@ -432,8 +428,7 @@ getProjectAvailabilityFromCaches Nothing Nothing _ _ _ =
 
 -- | Downloads Frameworks, related dSYMs and .version files in the caches.
 downloadArtifacts
-  :: BuildTypeSpecificConfiguration
-  -> Maybe S3.BucketName -- ^ Just an S3 Bucket name or Nothing
+  :: Maybe S3.BucketName -- ^ Just an S3 Bucket name or Nothing
   -> Maybe FilePath -- ^ Just the path to the local cache or Nothing
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
   -> [FrameworkVector] -- ^ A list of `FrameworkVector` from which to derive Frameworks, dSYMs and .version files
@@ -442,7 +437,7 @@ downloadArtifacts
        (CachePrefix, SkipLocalCacheFlag, ConcurrentlyFlag,Bool)
        RomeMonad
        ()
-downloadArtifacts buildTypeConfig mS3BucketName mlCacheDir reverseRepositoryMap frameworkVectors platforms
+downloadArtifacts mS3BucketName mlCacheDir reverseRepositoryMap frameworkVectors platforms
   = do
     (cachePrefix, skipLocalCacheFlag@(SkipLocalCacheFlag skipLocalCache), conconrrentlyFlag@(ConcurrentlyFlag performConcurrently), verbose) <-
       ask
@@ -457,8 +452,7 @@ downloadArtifacts buildTypeConfig mS3BucketName mlCacheDir reverseRepositoryMap 
         let uploadDownloadEnv =
               (env, cachePrefix, skipLocalCacheFlag, conconrrentlyFlag, verbose)
         let action1 = runReaderT
-              (downloadFrameworksAndArtifactsFromCaches buildTypeConfig
-                                                        s3BucketName
+              (downloadFrameworksAndArtifactsFromCaches s3BucketName
                                                         lCacheDir
                                                         reverseRepositoryMap
                                                         frameworkVectors
@@ -487,7 +481,6 @@ downloadArtifacts buildTypeConfig mS3BucketName mlCacheDir reverseRepositoryMap 
               errors <-
                 mapM runExceptT
                   $ getAndUnzipFrameworksAndArtifactsFromLocalCache
-                      buildTypeConfig
                       lCacheDir
                       reverseRepositoryMap
                       frameworkVectors
@@ -511,8 +504,7 @@ downloadArtifacts buildTypeConfig mS3BucketName mlCacheDir reverseRepositoryMap 
 
 -- | Uploads Frameworks and relative dSYMs together with .version files to caches
 uploadArtifacts
-  :: BuildTypeSpecificConfiguration
-  -> Maybe S3.BucketName -- ^ Just an S3 Bucket name or Nothing
+  :: Maybe S3.BucketName -- ^ Just an S3 Bucket name or Nothing
   -> Maybe FilePath -- ^ Just the path to the local cache or Nothing
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
   -> [FrameworkVector] -- ^ A list of `FrameworkVector` from which to derive Frameworks, dSYMs and .version files
@@ -521,7 +513,7 @@ uploadArtifacts
        (CachePrefix, SkipLocalCacheFlag, ConcurrentlyFlag,Bool)
        RomeMonad
        ()
-uploadArtifacts buildTypeConfig mS3BucketName mlCacheDir reverseRepositoryMap frameworkVectors platforms
+uploadArtifacts mS3BucketName mlCacheDir reverseRepositoryMap frameworkVectors platforms
   = do
     (cachePrefix, skipLocalCacheFlag@(SkipLocalCacheFlag skipLocalCache), concurrentlyFlag@(ConcurrentlyFlag performConcurrently), verbose) <-
       ask
@@ -536,8 +528,7 @@ uploadArtifacts buildTypeConfig mS3BucketName mlCacheDir reverseRepositoryMap fr
               , verbose
               )
         let action1 = runReaderT
-              (uploadFrameworksAndArtifactsToCaches buildTypeConfig
-                                                    s3BucketName
+              (uploadFrameworksAndArtifactsToCaches s3BucketName
                                                     lCacheDir
                                                     reverseRepositoryMap
                                                     frameworkVectors
@@ -560,8 +551,7 @@ uploadArtifacts buildTypeConfig mS3BucketName mlCacheDir reverseRepositoryMap fr
         when skipLocalCache $ throwError conflictingSkipLocalCacheOptionMessage
         liftIO
           $  runReaderT
-               (saveFrameworksAndArtifactsToLocalCache buildTypeConfig
-                                                       lCacheDir
+               (saveFrameworksAndArtifactsToLocalCache lCacheDir
                                                        reverseRepositoryMap
                                                        frameworkVectors
                                                        platforms
@@ -630,14 +620,13 @@ uploadVersionFileToCaches s3BucketName mlCacheDir reverseRomeMap fVector = do
 
 -- | Uploads a list of Frameworks and relative dSYMs to the caches.
 uploadFrameworksAndArtifactsToCaches
-  :: BuildTypeSpecificConfiguration
-  -> S3.BucketName -- ^ The cache definition.
+  :: S3.BucketName -- ^ The cache definition.
   -> Maybe FilePath -- ^ Just the path to a local cache or Nothing
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
   -> [FrameworkVector] -- ^ A list of `FrameworkVector` identifying the Frameworks and dSYMs.
   -> [TargetPlatform] -- ^ A list of `TargetPlatform`s restricting the scope of this action.
   -> ReaderT UploadDownloadCmdEnv IO ()
-uploadFrameworksAndArtifactsToCaches buildTypeConfig s3BucketName mlCacheDir reverseRomeMap frameworkVectors platforms
+uploadFrameworksAndArtifactsToCaches s3BucketName mlCacheDir reverseRomeMap frameworkVectors platforms
   = do
     (_, _, _, ConcurrentlyFlag performConcurrently, _) <- ask
     if performConcurrently
@@ -645,29 +634,27 @@ uploadFrameworksAndArtifactsToCaches buildTypeConfig s3BucketName mlCacheDir rev
       else mapM_ (sequence . upload) platforms
  where
   uploadConcurrently platforms f = mapConcurrently
-    (uploadFrameworkAndArtifactsToCaches buildTypeConfig
-                                         s3BucketName
+    (uploadFrameworkAndArtifactsToCaches s3BucketName
                                          mlCacheDir
                                          reverseRomeMap
                                          f
     )
     platforms
   upload = mapM
-    (uploadFrameworkAndArtifactsToCaches buildTypeConfig s3BucketName mlCacheDir reverseRomeMap)
+    (uploadFrameworkAndArtifactsToCaches s3BucketName mlCacheDir reverseRomeMap)
     frameworkVectors
 
 
 
 -- | Uploads a Framework, the relative dSYM and bcsymbolmaps to the caches.
 uploadFrameworkAndArtifactsToCaches
-  :: BuildTypeSpecificConfiguration
-  -> S3.BucketName -- ^ The cache definition.
+  :: S3.BucketName -- ^ The cache definition.
   -> Maybe FilePath -- ^ Just the path to the local cache or Nothing.
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
   -> FrameworkVector -- ^ The `FrameworkVector` identifying the Framework and the dSYM
   -> TargetPlatform -- ^ A `TargetPlatform` restricting the scope of this action.
   -> ReaderT UploadDownloadCmdEnv IO ()
-uploadFrameworkAndArtifactsToCaches buildTypeConfig s3BucketName mlCacheDir reverseRomeMap fVector platform
+uploadFrameworkAndArtifactsToCaches s3BucketName mlCacheDir reverseRomeMap fVector platform
   = do
     (env, cachePrefix, s@(SkipLocalCacheFlag skipLocalCache), _, verbose) <- ask
 
@@ -760,30 +747,28 @@ uploadFrameworkAndArtifactsToCaches buildTypeConfig s3BucketName mlCacheDir reve
 -- | Saves a list of Frameworks, relative dSYMs and bcsymbolmaps to a local cache.
 saveFrameworksAndArtifactsToLocalCache
   :: MonadIO m
-  => BuildTypeSpecificConfiguration
-  -> FilePath -- ^ The cache definition.
+  => FilePath -- ^ The cache definition.
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
   -> [FrameworkVector] -- ^ A list of `FrameworkVector` identifying Frameworks and dSYMs
   -> [TargetPlatform] -- ^ A list of `TargetPlatform` restricting the scope of this action.
   -> ReaderT (CachePrefix, Bool) m ()
-saveFrameworksAndArtifactsToLocalCache buildTypeConfig lCacheDir reverseRomeMap frameworkVectors = mapM_
+saveFrameworksAndArtifactsToLocalCache lCacheDir reverseRomeMap frameworkVectors = mapM_
   (sequence . save)
  where
   save =
-    mapM (saveFrameworkAndArtifactsToLocalCache buildTypeConfig lCacheDir reverseRomeMap) frameworkVectors
+    mapM (saveFrameworkAndArtifactsToLocalCache lCacheDir reverseRomeMap) frameworkVectors
 
 
 
 -- | Saves a Framework, the relative dSYM and then bcsymbolmaps to a local cache.
 saveFrameworkAndArtifactsToLocalCache
   :: MonadIO m
-  => BuildTypeSpecificConfiguration
-  -> FilePath -- ^ The cache definition
+  => FilePath -- ^ The cache definition
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
   -> FrameworkVector -- ^ A `FrameworkVector` identifying Framework and dSYM.
   -> TargetPlatform -- ^ A `TargetPlatform` restricting the scope of this action.
   -> ReaderT (CachePrefix, Bool) m ()
-saveFrameworkAndArtifactsToLocalCache buildTypeConfig lCacheDir reverseRomeMap fVector platform
+saveFrameworkAndArtifactsToLocalCache lCacheDir reverseRomeMap fVector platform
   = do
     (cachePrefix, verbose) <- ask
     let readerEnv = (cachePrefix, SkipLocalCacheFlag False, verbose)
@@ -927,14 +912,13 @@ downloadVersionFileFromCaches s3BucketName Nothing reverseRomeMap fVector = do
 
 -- | Downloads a list Frameworks and relative dSYMs from an S3 Bucket or a local cache.
 downloadFrameworksAndArtifactsFromCaches
-  :: BuildTypeSpecificConfiguration
-  -> S3.BucketName -- ^ The cache definition.
+  :: S3.BucketName -- ^ The cache definition.
   -> Maybe FilePath -- ^ Just the path to the local cache or Nothing.
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
   -> [FrameworkVector] -- ^ A list of `FrameworkVector` identifying the Frameworks and dSYMs
   -> [TargetPlatform] -- ^ A list of target platforms restricting the scope of this action.
   -> ReaderT UploadDownloadCmdEnv IO ()
-downloadFrameworksAndArtifactsFromCaches buildTypeConfig s3BucketName mlCacheDir reverseRomeMap fVectors platforms
+downloadFrameworksAndArtifactsFromCaches s3BucketName mlCacheDir reverseRomeMap fVectors platforms
   = do
     (_, _, _, ConcurrentlyFlag performConcurrently, _) <- ask
     if performConcurrently
@@ -942,16 +926,14 @@ downloadFrameworksAndArtifactsFromCaches buildTypeConfig s3BucketName mlCacheDir
       else mapM_ (sequence . download) platforms
  where
   downloadConcurrently platforms f = mapConcurrently
-    (downloadFrameworkAndArtifactsFromCaches buildTypeConfig
-                                             s3BucketName
+    (downloadFrameworkAndArtifactsFromCaches s3BucketName
                                              mlCacheDir
                                              reverseRomeMap
                                              f
     )
     platforms
   download = mapM
-    (downloadFrameworkAndArtifactsFromCaches buildTypeConfig
-                                             s3BucketName
+    (downloadFrameworkAndArtifactsFromCaches s3BucketName
                                              mlCacheDir
                                              reverseRomeMap
     )
@@ -963,14 +945,13 @@ downloadFrameworksAndArtifactsFromCaches buildTypeConfig s3BucketName mlCacheDir
 -- | If the Framework and dSYM are not found in the local cache then they are downloaded from S3.
 -- | If SkipLocalCache is specified, th local cache is ignored.
 downloadFrameworkAndArtifactsFromCaches
-  :: BuildTypeSpecificConfiguration
-  -> S3.BucketName -- ^ The cache definition.
+  :: S3.BucketName -- ^ The cache definition.
   -> Maybe FilePath -- ^ Just the path to the local cache or Nothing.
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
   -> FrameworkVector -- ^ The `FrameworkVector` identifying the Framework and dSYM
   -> TargetPlatform -- ^ A target platforms restricting the scope of this action.
   -> ReaderT UploadDownloadCmdEnv IO ()
-downloadFrameworkAndArtifactsFromCaches buildTypeConfig s3BucketName (Just lCacheDir) reverseRomeMap fVector platform
+downloadFrameworkAndArtifactsFromCaches s3BucketName (Just lCacheDir) reverseRomeMap fVector platform
   = do
     (env, cachePrefix@(CachePrefix prefix), SkipLocalCacheFlag skipLocalCache, _, verbose) <-
       ask
@@ -979,7 +960,6 @@ downloadFrameworkAndArtifactsFromCaches buildTypeConfig s3BucketName (Just lCach
     let localReaderEnv  = (cachePrefix, verbose)
 
     when skipLocalCache $ downloadFrameworkAndArtifactsFromCaches
-      buildTypeConfig
       s3BucketName
       Nothing
       reverseRomeMap
@@ -988,8 +968,7 @@ downloadFrameworkAndArtifactsFromCaches buildTypeConfig s3BucketName (Just lCach
 
     unless skipLocalCache $ do
       eitherFrameworkSuccess <- runReaderT
-        (runExceptT $ getAndUnzipFrameworkFromLocalCache buildTypeConfig
-                                                         lCacheDir
+        (runExceptT $ getAndUnzipFrameworkFromLocalCache lCacheDir
                                                          reverseRomeMap
                                                          fVector
                                                          platform
@@ -1014,7 +993,7 @@ downloadFrameworkAndArtifactsFromCaches buildTypeConfig s3BucketName (Just lCach
                                        (prefix </> _remoteFrameworkPath (_vectorPaths fVector) platform reverseRomeMap)
                                        verboseFrameworkDebugName
                                        verbose
-                deleteFrameworkDirectory buildTypeConfig fVector platform verbose
+                deleteFrameworkDirectory fVector platform verbose
                 unzipBinary frameworkBinary verboseFrameworkDebugName verboseFrameworkZipDebugName verbose
                   <* ifExists
                        frameworkExecutablePath
@@ -1025,8 +1004,7 @@ downloadFrameworkAndArtifactsFromCaches buildTypeConfig s3BucketName (Just lCach
 
 
       eitherBcsymbolmapsOrErrors <- runReaderT
-        (runExceptT $ getAndUnzipBcsymbolmapsFromLocalCache' buildTypeConfig
-                                                             lCacheDir
+        (runExceptT $ getAndUnzipBcsymbolmapsFromLocalCache' lCacheDir
                                                              reverseRomeMap
                                                              fVector
                                                              platform
@@ -1065,8 +1043,7 @@ downloadFrameworkAndArtifactsFromCaches buildTypeConfig s3BucketName (Just lCach
 
 
       eitherDSYMSuccess <- runReaderT
-        (runExceptT $ getAndUnzipDSYMFromLocalCache buildTypeConfig
-                                                    lCacheDir
+        (runExceptT $ getAndUnzipDSYMFromLocalCache lCacheDir
                                                     reverseRomeMap
                                                     fVector
                                                     platform
@@ -1088,7 +1065,7 @@ downloadFrameworkAndArtifactsFromCaches buildTypeConfig s3BucketName (Just lCach
                                        (prefix </> _remoteDsymPath (_vectorPaths fVector) platform reverseRomeMap)
                                        verboseDSYMDebugName
                                        verbose
-                deleteDSYMDirectory buildTypeConfig fVector platform  verbose
+                deleteDSYMDirectory fVector platform  verbose
                 unzipBinary dSYMBinary verboseDSYMDebugName verboseDSYMZipDebugName verbose
               whenLeft sayFunc e2
             )
@@ -1105,7 +1082,7 @@ downloadFrameworkAndArtifactsFromCaches buildTypeConfig s3BucketName (Just lCach
   frameworkExecutablePath = _frameworkBinaryPath (_vectorPaths fVector) platform
 
 
-downloadFrameworkAndArtifactsFromCaches buildTypeConfig s3BucketName Nothing reverseRomeMap fVector platform
+downloadFrameworkAndArtifactsFromCaches s3BucketName Nothing reverseRomeMap fVector platform
   = do
     (env, cachePrefix, _, _, verbose) <- ask
 
@@ -1113,8 +1090,7 @@ downloadFrameworkAndArtifactsFromCaches buildTypeConfig s3BucketName Nothing rev
 
     let sayFunc   = if verbose then sayLnWithTime else sayLn
     eitherError <- liftIO $ runReaderT
-      (runExceptT $ getAndUnzipFrameworkFromS3 buildTypeConfig
-                                               s3BucketName
+      (runExceptT $ getAndUnzipFrameworkFromS3 s3BucketName
                                                reverseRomeMap
                                                fVector
                                                platform
@@ -1124,14 +1100,13 @@ downloadFrameworkAndArtifactsFromCaches buildTypeConfig s3BucketName Nothing rev
 
     eitherDSYMError <- liftIO $ runReaderT
       ( runExceptT
-      $ getAndUnzipDSYMFromS3 buildTypeConfig s3BucketName reverseRomeMap fVector platform
+      $ getAndUnzipDSYMFromS3 s3BucketName reverseRomeMap fVector platform
       )
       readerEnv
     whenLeft sayFunc eitherDSYMError
 
     eitherSymbolmapsOrErrors <- liftIO $ runReaderT
-      (runExceptT $ getAndUnzipBcsymbolmapsFromS3' buildTypeConfig
-                                                   s3BucketName
+      (runExceptT $ getAndUnzipBcsymbolmapsFromS3' s3BucketName
                                                    reverseRomeMap
                                                    fVector
                                                    platform

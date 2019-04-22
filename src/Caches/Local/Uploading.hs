@@ -3,7 +3,6 @@ module Caches.Local.Uploading where
 
 
 import qualified Codec.Archive.Zip             as Zip
-import           Configuration
 import           Control.Monad                (unless, when)
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader         (ReaderT, ask)
